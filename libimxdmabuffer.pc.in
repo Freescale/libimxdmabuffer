@@ -1,0 +1,10 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: libimxdmabuffer
+Description: library for allocating and managing physically contiguous memory ("DMA memory" or "DMA buffers") on i.MX devices
+Version: @IMXDMABUFFER_VERSION@
+Libs: -L${libdir} -limxdmabuffer
+Cflags: -I${includedir}
