@@ -191,7 +191,8 @@ static ImxDmaBufferAllocator wrapped_dma_buffer_allocator =
 	wrapped_dma_buffer_allocator_unmap,
 	wrapped_dma_buffer_allocator_get_physical_address,
 	wrapped_dma_buffer_allocator_get_fd,
-	wrapped_dma_buffer_allocator_get_size
+	wrapped_dma_buffer_allocator_get_size,
+	{ 0, }
 };
 
 
