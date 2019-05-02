@@ -415,9 +415,9 @@ imx_physical_address_t imx_dma_buffer_ion_get_physical_address_from_dmabuf_fd(in
 
 	struct dma_buf_phys dma_phys;
 
-	assert(ion_fd >= 0);
+	assert(dmabuf_fd >= 0);
 
-	if (ioctl(ion_fd, DMA_BUF_IOCTL_PHYS, &dma_phys) < 0)
+	if (ioctl(dmabuf_fd, DMA_BUF_IOCTL_PHYS, &dma_phys) < 0)
 	{
 		if (error != NULL)
 			*error = errno;
