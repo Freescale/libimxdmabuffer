@@ -275,7 +275,7 @@ static unsigned int get_heap_id_mask(int ion_fd, int *error)
 
 	heap_data = calloc(heap_count, sizeof(struct ion_heap_data));
 	query.cnt = heap_count;
-	query.heaps = (__u64)((uintptr_t)(&heap_data));
+	query.heaps = (__u64)((uintptr_t)heap_data);
 	if (ioctl(ion_fd, ION_IOC_HEAP_QUERY, &query) < 0)
 	{
 		if (error != NULL)
