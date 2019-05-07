@@ -3,6 +3,8 @@ exec_prefix=@exec_prefix@
 libdir=@libdir@
 includedir=@includedir@
 
+libimxdmabuffer_ion=@WITH_ION_ALLOCATOR@
+
 Name: libimxdmabuffer
 Description: library for allocating and managing physically contiguous memory ("DMA memory" or "DMA buffers") on i.MX devices
 Version: @IMXDMABUFFER_VERSION@

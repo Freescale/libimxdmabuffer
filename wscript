@@ -117,11 +117,13 @@ def configure(conf):
 			msg = 'Checking for ION allocator support by testing the presence of linux/ion.h'
 		)
 		if ion_header_found:
+			conf.env['WITH_ION_ALLOCATOR'] = 1
 			conf.define('IMXDMABUFFER_ION_ALLOCATOR_ENABLED', 1)
 			conf.env['EXTRA_USELIBS'] += ['IMXHEADERS']
 			conf.env['EXTRA_HEADER_FILES'] += ['imxdmabuffer/imxdmabuffer_ion_allocator.h']
 			conf.env['EXTRA_SOURCE_FILES'] += ['imxdmabuffer/imxdmabuffer_ion_allocator.c']
 		else:
+			conf.env['WITH_ION_ALLOCATOR'] = 0
 			if with_ion_alloc == 'yes':
 				conf.fatal('linux/ion.h was not found in i.MX linux headers path')
 			else:
