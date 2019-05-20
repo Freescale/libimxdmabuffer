@@ -250,7 +250,7 @@ ImxDmaBufferAllocator* imx_dma_buffer_ion_allocator_new(int ion_fd, unsigned int
 
 
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 34)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
 
 static unsigned int get_heap_id_mask(int ion_fd, int *error)
 {
@@ -304,7 +304,7 @@ int imx_dma_buffer_ion_allocate_dmabuf(int ion_fd, size_t size, size_t alignment
 	/* Prior to kernel 4.14.34, we cannot get the FD from the
 	 * allocation data directly, and have to resort to an extra
 	 * ION_IOC_MAP ioctl, which requires the user_handle. */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 34)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
 	ion_user_handle_t user_handle;
 	int user_handle_set = 0;
 #endif
@@ -312,7 +312,7 @@ int imx_dma_buffer_ion_allocate_dmabuf(int ion_fd, size_t size, size_t alignment
 
 	assert(ion_fd >= 0);
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 34)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
 	/* Starting with kernel 4.14.34, we do not need the ion_heap_id_mask
 	 * argument anymore, since we can autodetect the mask, so we ignore
 	 * the argument's value. */
@@ -337,7 +337,7 @@ int imx_dma_buffer_ion_allocate_dmabuf(int ion_fd, size_t size, size_t alignment
 			goto finish;
 		}
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 34)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
 		{
 			user_handle = allocation_data.handle;
 			user_handle_set = 1;
@@ -364,7 +364,7 @@ int imx_dma_buffer_ion_allocate_dmabuf(int ion_fd, size_t size, size_t alignment
 
 finish:
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 34)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
 	if (user_handle_set)
 	{
 		struct ion_handle_data handle_data =
@@ -386,7 +386,7 @@ imx_physical_address_t imx_dma_buffer_ion_get_physical_address_from_dmabuf_fd(in
 
 	/* The DMA_BUF_IOCTL_PHYS ioctl is not available
 	 * until kernel version 4.14.34. */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 34)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
 
 	struct ion_phys_dma_data phys_dma_data =
 	{
