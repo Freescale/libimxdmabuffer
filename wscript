@@ -107,11 +107,6 @@ def configure(conf):
 			fragment = '''
 				#include <stddef.h>
 				#include <linux/ion.h>
-
-				#ifndef ION_IOC_PHYS_DMA
-				#error ION_IOC_PHYS_DMA ioctl not defined; this may not be an NXP-patched ion.h header
-				#endif
-
 				int main() {
 					return 0;
 				}
@@ -119,7 +114,7 @@ def configure(conf):
 			uselib = 'IMXHEADERS',
 			mandatory = False,
 			execute = False,
-			msg = 'Checking for ION allocator support by testing the presence of linux/ion.h and the ION_IOC_PHYS_DMA ioctl'
+			msg = 'Checking for ION allocator support by testing the presence of linux/ion.h'
 		)
 		if ion_header_found:
 			conf.env['WITH_ION_ALLOCATOR'] = 1
@@ -130,9 +125,9 @@ def configure(conf):
 		else:
 			conf.env['WITH_ION_ALLOCATOR'] = 0
 			if with_ion_alloc == 'yes':
-				conf.fatal('linux/ion.h and ION_IOC_PHYS_DMA ioctl were not found in i.MX linux headers path')
+				conf.fatal('linux/ion.h was not found in i.MX linux headers path')
 			else:
-				Logs.pprint('NORMAL', 'linux/ion.h or the ION_IOC_PHYS_DMA ioctl were not found in i.MX linux headers path; disabling ION allocator')
+				Logs.pprint('NORMAL', 'linux/ion.h was not found in i.MX linux headers path; disabling ION allocator')
 
 
 	# DWL allocator checks and flags
