@@ -325,7 +325,9 @@ int imx_dma_buffer_ion_allocate_dmabuf(int ion_fd, size_t size, size_t alignment
 		struct ion_allocation_data allocation_data =
 		{
 			.len = size,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
 			.align = alignment,
+#endif
 			.heap_id_mask = ion_heap_id_mask,
 			.flags = ion_heap_flags
 		};
