@@ -143,13 +143,11 @@ static uint8_t* imx_dma_buffer_ion_allocator_map(ImxDmaBufferAllocator *allocato
 		 * the memory mapping. */
 
 		int mmap_prot = 0;
-		int mmap_flags = 0;
+		int mmap_flags = MAP_SHARED;
 		void *virtual_address;
 
 		mmap_prot |= (flags & IMX_DMA_BUFFER_MAPPING_FLAG_READ) ? PROT_READ : 0;
 		mmap_prot |= (flags & IMX_DMA_BUFFER_MAPPING_FLAG_WRITE) ? PROT_WRITE : 0;
-
-		mmap_flags |= (flags & IMX_DMA_BUFFER_MAPPING_FLAG_MAP_PRIVATE) ? MAP_PRIVATE : MAP_SHARED;
 
 		virtual_address = mmap(0, imx_ion_buffer->size, mmap_prot, mmap_flags, imx_ion_buffer->dmabuf_fd, 0);
 		if (virtual_address == MAP_FAILED)

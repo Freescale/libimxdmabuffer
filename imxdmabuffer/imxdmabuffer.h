@@ -18,12 +18,7 @@ typedef enum
 	/* Map memory for CPU write access. */
 	IMX_DMA_BUFFER_MAPPING_FLAG_WRITE       = (1UL << 0),
 	/* Map memory for CPU read access. */
-	IMX_DMA_BUFFER_MAPPING_FLAG_READ        = (1UL << 1),
-	/* Map memory privately (default: shared mapping). Writing to
-	 * a memory mapping that was mapped with this flag will not
-	 * change the underlying DMA memory. Instead, it uses a
-	 * copy-on-write scheme. */
-	IMX_DMA_BUFFER_MAPPING_FLAG_MAP_PRIVATE = (1UL << 2)
+	IMX_DMA_BUFFER_MAPPING_FLAG_READ        = (1UL << 1)
 }
 ImxDmaBufferMappingFlags;
 
