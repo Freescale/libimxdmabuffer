@@ -299,6 +299,12 @@ static unsigned int get_heap_id_mask(int ion_fd, int *error)
 
 int imx_dma_buffer_ion_allocate_dmabuf(int ion_fd, size_t size, size_t alignment, unsigned int ion_heap_id_mask, unsigned int ion_heap_flags, int *error)
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
+	/* alignment value is unused in newer kernels. See function
+	 * documentation for more about this. */
+	IMX_DMA_BUFFER_UNUSED_PARAM(alignment);
+#endif
+
 	/* Prior to kernel 4.14.34, we cannot get the FD from the
 	 * allocation data directly, and have to resort to an extra
 	 * ION_IOC_MAP ioctl, which requires the user_handle. */
@@ -416,6 +422,8 @@ imx_physical_address_t imx_dma_buffer_ion_get_physical_address_from_dmabuf_fd(in
 	struct dma_buf_phys dma_phys;
 
 	assert(dmabuf_fd >= 0);
+
+	IMX_DMA_BUFFER_UNUSED_PARAM(ion_fd);
 
 	if (ioctl(dmabuf_fd, DMA_BUF_IOCTL_PHYS, &dma_phys) < 0)
 	{

@@ -62,6 +62,21 @@ ImxDmaBufferAllocator* imx_dma_buffer_ion_allocator_new(int ion_fd, unsigned int
  * Usually it is better to just use the predefined ION imxdmabuffer allocator instead.
  * Use imx_dma_buffer_ion_allocator_new() to create one instance.
  *
+ * NOTE: Currently, the alignment argument is not actually doing anything. This is
+ * because there is no clear way to enforce a minimum physical address alignment over
+ * ION. In the ION ImxDmaBufferAllocator implementation, it would be possible to use
+ * this value by allocating a bit more memory than requested & aligning the physical
+ * and mapped virtual addresses manually. But, this only works if the caller only ever
+ * accesses the memory block over the imx_dma_buffer_* functions. With ION allocation
+ * though it is _also_ possible to access it by memory-mapping its DMA-BUF fd, and
+ * any virtual address that gets memory-mapped that way will _not_ be aligned in the
+ * same way. This means that there are no options left for enforcing specific memory
+ * alignment with ION at this stage. Fortunately, allocated pages typically are aligned
+ * at a page level, meaning an alignment to 4096 bytes. This alignment typically
+ * fulfills requirement of all practical use cases (since the requirements usually
+ * are just something like "align to 8 bytes", "align to 16 bytes" etc.) Still, leaving
+ * this argument in place, in case future ION revisions allow for specifying alignment.
+ *
  * @param ion_fd /dev/ion file descriptor to use. Must not be negative.
  * @param size Size of the DMA buffer to allocate, in bytes. Must be greater than 0.
  * @param alignment Memory alignment for the newly allocated DMA buffer.
