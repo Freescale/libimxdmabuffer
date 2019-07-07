@@ -51,7 +51,7 @@ def options(opt):
 	opt.add_option('--enable-static', action = 'store_true', default = False, help = 'build static library [default: build shared library]')
 	opt.add_option('--imx-linux-headers-path', action='store', default='', help='path to i.MX linux headers (where linux/mxcfb.h etc. can be found)')
 	opt.add_option('--with-ion-allocator', action='store', default = 'auto', help = 'build with ION allocator support (valid values: yes/no/auto)')
-	opt.add_option('--with-dwl-allocator', action='store', default = 'auto', help = 'build with ION allocator support (valid values: yes/no/auto)')
+	opt.add_option('--with-dwl-allocator', action='store', default = 'auto', help = 'build with DWL allocator support (valid values: yes/no/auto)')
 	opt.add_option('--hantro-decoder-version', action='store', default = '', help = 'Hantro decoder version to use for DWL based allocations (valid values: G1 G2)')
 	opt.add_option('--hantro-headers-path', action='store', default='', help='path to hantro headers (dwl.h codec.h are checked for)')
 	opt.add_option('--with-ipu-allocator', action='store', default = 'auto', help = 'build with IPU allocator support (valid values: yes/no/auto)')
