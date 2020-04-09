@@ -1,3 +1,9 @@
+==== version 1.0.1 (2020-04-09) ====
+
+* Changes to migrate build system to Python 3:
+  * waf: update to 2.0.12
+  * waf: use python3
+
 ==== version 1.0.0 (2019-07-07) ====
 
 Initial release
