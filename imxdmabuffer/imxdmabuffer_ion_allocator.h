@@ -45,7 +45,9 @@ extern "C" {
  *        Note however that starting with kernel 4.14.34, this argument is ignored,
  *        since the heap ID mask is autodetected (all heaps with type ION_HEAP_TYPE_DMA
  *        are selected).
- * @param ion_heap_flags Flags to pass to the ION heap during allocations.
+ * @param ion_heap_flags Flags to pass to the ION heap during allocations. The
+ *        preprocessor macro IMX_DMA_BUFFER_ION_ALLOCATOR_DEFAULT_HEAP_FLAGS can be
+ *        used as a default value (= no flags selected).
  * @param error If this pointer is non-NULL, and if an error occurs, then the integer
  *        the pointer refers to is set to an error code from errno.h. If creating
  *        the allocator succeeds, the integer is not modified.
