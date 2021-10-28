@@ -50,6 +50,8 @@ def options(opt):
 	opt.add_option('--enable-debug', action = 'store_true', default = False, help = 'enable debug build [default: disabled]')
 	opt.add_option('--enable-static', action = 'store_true', default = False, help = 'build static library [default: build shared library]')
 	opt.add_option('--imx-linux-headers-path', action='store', default='', help='path to i.MX linux headers (where linux/mxcfb.h etc. can be found)')
+	opt.add_option('--with-dma-heap-allocator', action='store', default = 'auto', help = 'build with dma-heap allocator support (valid values: yes/no/auto)')
+	opt.add_option('--dma-heap-device-node-path', action='store', default='/dev/dma_heap/linux,cma', help='path to dma-heap device node')
 	opt.add_option('--with-ion-allocator', action='store', default = 'auto', help = 'build with ION allocator support (valid values: yes/no/auto)')
 	opt.add_option('--with-dwl-allocator', action='store', default = 'auto', help = 'build with DWL allocator support (valid values: yes/no/auto)')
 	opt.add_option('--hantro-decoder-version', action='store', default = '', help = 'Hantro decoder version to use for DWL based allocations (valid values: G1 G2)')
@@ -98,6 +100,44 @@ def configure(conf):
 	if not conf.check_cc(uselib_store = 'IMXHEADERS', define_name = '', mandatory = False, includes = [conf.options.imx_linux_headers_path], header_name = 'linux/mxcfb.h'):
 		conf.fatal('Could not find linux/mxcfb.h in path "%s" specified by --imx-linux-headers-path' % conf.options.imx_linux_headers_path)
 	Logs.pprint('NORMAL', 'i.MX linux headers path: %s' % conf.options.imx_linux_headers_path)
+
+
+	# dma-heap allocator checks and flags
+	with_dma_heap_alloc = conf.options.with_dma_heap_allocator
+	if with_dma_heap_alloc != 'no':
+		dma_heap_supported = conf.check_cc(
+			fragment = '''
+				#include <sys/ioctl.h>
+				#include <linux/dma-heap.h>
+				int main() {
+					struct dma_heap_allocation_data heap_alloc_data;
+					ioctl(-1, DMA_HEAP_IOCTL_ALLOC, &heap_alloc_data);
+					return 0;
+				}
+			''',
+			uselib = 'IMXHEADERS',
+			mandatory = False,
+			execute = False,
+			msg = 'Checking for dma-heap allocator support by testing the presence of the DMA_HEAP_IOCTL_ALLOC ioctl'
+		)
+		if dma_heap_supported:
+			dma_heap_device_node_path = conf.options.dma_heap_device_node_path
+			if not dma_heap_device_node_path:
+				conf.fatal('dma-heap device node path must not be an empty string')
+			Logs.pprint('NORMAL', 'dma-heap device node path: ' + dma_heap_device_node_path)
+
+			conf.env['WITH_DMA_HEAP_ALLOCATOR'] = 1
+			conf.define('IMXDMABUFFER_DMA_HEAP_ALLOCATOR_ENABLED', 1)
+			conf.define('IMXDMABUFFER_DMA_HEAP_DEVICE_NODE_PATH', dma_heap_device_node_path)
+			conf.env['EXTRA_USELIBS'] += ['IMXHEADERS']
+			conf.env['EXTRA_HEADER_FILES'] += ['imxdmabuffer/imxdmabuffer_dma_heap_allocator.h']
+			conf.env['EXTRA_SOURCE_FILES'] += ['imxdmabuffer/imxdmabuffer_dma_heap_allocator.c']
+		else:
+			conf.env['WITH_DMA_HEAP_ALLOCATOR'] = 0
+			if with_dma_heap_alloc == 'yes':
+				conf.fatal('DMA_HEAP_IOCTL_ALLOC ioctl was not found')
+			else:
+				Logs.pprint('NORMAL', 'DMA_HEAP_IOCTL_ALLOC ioctl was not found; disabling dma-heap allocator')
 
 
 	# ION allocator checks and flags

@@ -4,6 +4,10 @@
 #include "imxdmabuffer.h"
 #include "imxdmabuffer_priv.h"
 
+#ifdef IMXDMABUFFER_DMA_HEAP_ALLOCATOR_ENABLED
+#include "imxdmabuffer_dma_heap_allocator.h"
+#endif
+
 #ifdef IMXDMABUFFER_ION_ALLOCATOR_ENABLED
 #include "imxdmabuffer_ion_allocator.h"
 #endif
@@ -27,6 +31,14 @@
 
 ImxDmaBufferAllocator* imx_dma_buffer_allocator_new(int *error)
 {
+#ifdef IMXDMABUFFER_DMA_HEAP_ALLOCATOR_ENABLED
+	return imx_dma_buffer_dma_heap_allocator_new(
+		-1,
+		IMX_DMA_BUFFER_DMA_HEAP_ALLOCATOR_DEFAULT_HEAP_FLAGS,
+		IMX_DMA_BUFFER_DMA_HEAP_ALLOCATOR_DEFAULT_FD_FLAGS,
+		error
+	);
+#endif
 #ifdef IMXDMABUFFER_ION_ALLOCATOR_ENABLED
 	return imx_dma_buffer_ion_allocator_new(
 		IMX_DMA_BUFFER_ION_ALLOCATOR_DEFAULT_ION_FD,

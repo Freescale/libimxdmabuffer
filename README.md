@@ -41,13 +41,31 @@ Available allocators
   with the G2D API enabled. i.MX6 machines with the Vivante GPU drivers
   have this API.
 * ION: Uses the ION allocator that has been originally ported from
-  Android to Linux, and has further been enabled and modified in the
-  linux-imx kernel. Not available on i.MX6, though this seems to be
-  purely a kernel configuration issue.
+  Android to Linux.
+* dma-heap: Uses the new dma-heap userspace DMA-BUF allocation API
+  that was introduced in Linux 5.6.
 * IPU: Uses IPU ioctls for allocation. Available on machines with an
   IPU, which includes most i.MX6 variants, but no i.MX7 or i.MX8 ones.
 * PxP: Uses PxP ioctls for allocation. Available on machines with a
   PxP, which includes the i.MX7, and some i.MX6 variants.
+
+The ION and dma-heap allocators allocate DMA-BUF buffers, so it is possible
+to use `imx_dma_buffer_get_fd()` on `ImxDmaBuffer` instances produces by
+those allocators. The other allocators don't; that function will always
+return `-1` when used with those allocators. For this reason, these days,
+it is generally recommended to use dma-heap or ION. dma-heap is preferred
+when using kernel 5.6 or newer.
+
+Also, linux-imx contains additions to both ION and dma-heap to be able
+to fetch a physical address that is associated with an allocated buffer.
+This is necessary, because some other NXP specific APIs expect physical
+addresses, not DMA-BUF FDs.
+
+NOTE: ION is not available out-of-the-box on i.MX6 machines. However, it can
+be used on these by adding the following lines to the kernel configuration:
+
+    CONFIG_ION=y
+    CONFIG_ION_CMA_HEAP=y
 
 
 Building and installing
@@ -92,7 +110,7 @@ Configuring the default allocator
 
 By default, this is the order by which allocators are tried:
 
-ION -> DWL -> IPU -> G2D -> PxP
+dma-heap -> ION -> DWL -> IPU -> G2D -> PxP
 
 The first one that is available will be used. Individual allocators can be
 enabled or disabled by using the `--with-<allocname>-allocator=<value>`

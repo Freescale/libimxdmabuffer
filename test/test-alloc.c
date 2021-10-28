@@ -5,6 +5,10 @@
 #include "imxdmabuffer/imxdmabuffer.h"
 #include "imxdmabuffer/imxdmabuffer_priv.h"
 
+#ifdef IMXDMABUFFER_DMA_HEAP_ALLOCATOR_ENABLED
+#include "imxdmabuffer/imxdmabuffer_dma_heap_allocator.h"
+#endif
+
 #ifdef IMXDMABUFFER_ION_ALLOCATOR_ENABLED
 #include "imxdmabuffer/imxdmabuffer_ion_allocator.h"
 #endif
@@ -96,6 +100,17 @@ int main()
 	int err;
 	ImxDmaBufferAllocator *allocator;
 	int retval = 0;
+
+#ifdef IMXDMABUFFER_DMA_HEAP_ALLOCATOR_ENABLED
+	allocator = imx_dma_buffer_dma_heap_allocator_new(-1, IMX_DMA_BUFFER_DMA_HEAP_ALLOCATOR_DEFAULT_HEAP_FLAGS, IMX_DMA_BUFFER_DMA_HEAP_ALLOCATOR_DEFAULT_FD_FLAGS, &err);
+	if (allocator == NULL)
+	{
+		fprintf(stderr, "Could not create dma-heap allocator: %s (%d)\n", strerror(err), err);
+		retval = -1;
+	}
+	else if (check_allocation(allocator, "dma-heap") == 0)
+		retval = -1;
+#endif
 
 #ifdef IMXDMABUFFER_ION_ALLOCATOR_ENABLED
 	allocator = imx_dma_buffer_ion_allocator_new(-1, IMX_DMA_BUFFER_ION_ALLOCATOR_DEFAULT_HEAP_ID_MASK, IMX_DMA_BUFFER_ION_ALLOCATOR_DEFAULT_HEAP_FLAGS, &err);
