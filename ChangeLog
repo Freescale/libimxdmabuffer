@@ -1,3 +1,13 @@
+==== version 1.1.0 (2021-10-29) ====
+
+* Add dma-heap allocator
+* Documentation and typo fixes
+* Use RW flags in ION allocator if no mapping
+  flags are specified
+* Add checks for attempts to map already mapped
+  buffers with different flags than in the
+  original mapping
+
 ==== version 1.0.1 (2020-04-09) ====
 
 * Changes to migrate build system to Python 3:
