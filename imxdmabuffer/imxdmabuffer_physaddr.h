@@ -7,8 +7,8 @@ extern "C" {
 #endif
 
 
-/* Format and for printf-compatible format-strings.
- * Example use: printf("physical address: %" IMX_PHYSICAL_ADDRESS_FORMAT, phys_addr */
+/* Format string for printf-compatible format-strings.
+ * Example use: printf("physical address: %" IMX_PHYSICAL_ADDRESS_FORMAT, phys_addr); */
 #define IMX_PHYSICAL_ADDRESS_FORMAT "#lx"
 
 
