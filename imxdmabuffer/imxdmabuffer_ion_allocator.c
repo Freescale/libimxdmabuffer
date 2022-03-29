@@ -131,6 +131,9 @@ static uint8_t* imx_dma_buffer_ion_allocator_map(ImxDmaBufferAllocator *allocato
 	assert(imx_ion_buffer != NULL);
 	assert(imx_ion_buffer->dmabuf_fd >= 0);
 
+	if (flags == 0)
+		flags = IMX_DMA_BUFFER_MAPPING_FLAG_READ | IMX_DMA_BUFFER_MAPPING_FLAG_WRITE;
+
 	if (imx_ion_buffer->mapped_virtual_address != NULL)
 	{
 		/* Buffer is already mapped. Just increment the
