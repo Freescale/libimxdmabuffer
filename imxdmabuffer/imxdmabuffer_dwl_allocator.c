@@ -21,7 +21,6 @@ typedef struct
 	size_t size;
 	uint8_t* aligned_virtual_address;
 	imx_physical_address_t aligned_physical_address;
-	int ion_fd;
 }
 ImxDmaBufferDwlBuffer;
 
@@ -164,10 +163,9 @@ static imx_physical_address_t imx_dma_buffer_dwl_allocator_get_physical_address(
 
 static int imx_dma_buffer_dwl_allocator_get_fd(ImxDmaBufferAllocator *allocator, ImxDmaBuffer *buffer)
 {
-	ImxDmaBufferDwlBuffer *imx_dwl_buffer = (ImxDmaBufferDwlBuffer *)buffer;
 	IMX_DMA_BUFFER_UNUSED_PARAM(allocator);
-	assert(imx_dwl_buffer != NULL);
-	return imx_dwl_buffer->ion_fd;
+	IMX_DMA_BUFFER_UNUSED_PARAM(buffer);
+	return -1;
 }
 
 static size_t imx_dma_buffer_dwl_allocator_get_size(ImxDmaBufferAllocator *allocator, ImxDmaBuffer *buffer)
