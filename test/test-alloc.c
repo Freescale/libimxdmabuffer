@@ -64,7 +64,7 @@ int check_allocation(ImxDmaBufferAllocator *allocator, char const *name)
 	mapped_virtual_address = imx_dma_buffer_map(dma_buffer, 0, &err);
 	if (mapped_virtual_address == NULL)
 	{
-		fprintf(stderr, "Could not mapped DMA buffer allocated with %s allocator: %s (%d)\n", name, strerror(err), err);
+		fprintf(stderr, "Could not map DMA buffer allocated with %s allocator: %s (%d)\n", name, strerror(err), err);
 		goto finish;
 	}
 
