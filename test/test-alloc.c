@@ -38,6 +38,7 @@ int check_allocation(ImxDmaBufferAllocator *allocator, char const *name)
 	int retval = 0;
 	int err;
 	void *mapped_virtual_address = NULL;
+	void *second_mapped_virtual_address = NULL;
 	imx_physical_address_t physical_address;
 	ImxDmaBuffer *dma_buffer = NULL;
 
@@ -68,6 +69,19 @@ int check_allocation(ImxDmaBufferAllocator *allocator, char const *name)
 		goto finish;
 	}
 
+	second_mapped_virtual_address = imx_dma_buffer_map(dma_buffer, 0, &err);
+	if (second_mapped_virtual_address == NULL)
+	{
+		fprintf(stderr, "Could not map DMA buffer allocated with %s allocator: %s (%d)\n", name, strerror(err), err);
+		goto finish;
+	}
+
+	if (mapped_virtual_address != second_mapped_virtual_address)
+	{
+		fprintf(stderr, "Redundant mapping attempts must always return the same virtual pointer as the previous mapping\n");
+		goto finish;
+	}
+
 	physical_address = imx_dma_buffer_get_physical_address(dma_buffer);
 	if (physical_address == 0)
 	{
@@ -84,6 +98,8 @@ int check_allocation(ImxDmaBufferAllocator *allocator, char const *name)
 	retval = 1;
 
 finish:
+	if (second_mapped_virtual_address != NULL)
+		imx_dma_buffer_unmap(dma_buffer);
 	if (mapped_virtual_address != NULL)
 		imx_dma_buffer_unmap(dma_buffer);
 	if (dma_buffer != NULL)

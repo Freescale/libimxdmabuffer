@@ -146,6 +146,8 @@ static uint8_t* imx_dma_buffer_dma_heap_allocator_map(ImxDmaBufferAllocator *all
 
 	if (imx_dma_heap_buffer->mapped_virtual_address != NULL)
 	{
+		assert(imx_dma_heap_buffer->map_flags == flags);
+
 		/* Buffer is already mapped. Just increment the
 		 * refcount and otherwise do nothing. */
 		imx_dma_heap_buffer->mapping_refcount++;

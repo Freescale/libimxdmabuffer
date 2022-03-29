@@ -21,6 +21,13 @@ typedef struct
 	size_t size;
 	uint8_t* aligned_virtual_address;
 	imx_physical_address_t aligned_physical_address;
+
+	/* These are kept around to catch invalid redundant mapping attempts.
+	 * It is good practice to check for those even if the underlying
+	 * allocator (DWL in this case) does not actually need any mapping
+	 * or mapping flags. */
+	unsigned int map_flags;
+	int mapping_refcount;
 }
 ImxDmaBufferDwlBuffer;
 
@@ -84,6 +91,7 @@ static ImxDmaBuffer* imx_dma_buffer_dwl_allocator_allocate(ImxDmaBufferAllocator
 	imx_dwl_buffer->parent.allocator = allocator;
 	imx_dwl_buffer->actual_size = actual_size;
 	imx_dwl_buffer->size = size;
+	imx_dwl_buffer->mapping_refcount = 0;
 
 	/* Initialize the DWL linear memory structure for allocation. DWL_MEM_TYPE_CPU is
 	 * physically contiguous memory that can be accessed with the CPU.
@@ -134,10 +142,26 @@ static uint8_t* imx_dma_buffer_dwl_allocator_map(ImxDmaBufferAllocator *allocato
 	ImxDmaBufferDwlBuffer *imx_dwl_buffer = (ImxDmaBufferDwlBuffer *)buffer;
 
 	IMX_DMA_BUFFER_UNUSED_PARAM(allocator);
-	IMX_DMA_BUFFER_UNUSED_PARAM(flags);
 	IMX_DMA_BUFFER_UNUSED_PARAM(error);
 
 	assert(imx_dwl_buffer != NULL);
+
+	if (flags == 0)
+		flags = IMX_DMA_BUFFER_MAPPING_FLAG_READ | IMX_DMA_BUFFER_MAPPING_FLAG_WRITE;
+
+	/* As mentioned above, we keep the refcount and flags around
+	 * just to check correct API usage. Do this check here.
+	 * (Other allocators perform more steps than this.) */
+	if (imx_dwl_buffer->mapping_refcount > 0)
+	{
+		assert(imx_dwl_buffer->map_flags == flags);
+		imx_dwl_buffer->mapping_refcount++;
+	}
+	else
+	{
+		imx_dwl_buffer->map_flags = flags;
+		imx_dwl_buffer->mapping_refcount = 1;
+	}
 
 	/* DWL allocated memory is always mapped, so we just returned the aligned virtual
 	 * address we stored in imx_dma_buffer_dwl_allocator_allocate(). */
@@ -147,8 +171,12 @@ static uint8_t* imx_dma_buffer_dwl_allocator_map(ImxDmaBufferAllocator *allocato
 
 static void imx_dma_buffer_dwl_allocator_unmap(ImxDmaBufferAllocator *allocator, ImxDmaBuffer *buffer)
 {
+	ImxDmaBufferDwlBuffer *imx_dwl_buffer = (ImxDmaBufferDwlBuffer *)buffer;
+
 	IMX_DMA_BUFFER_UNUSED_PARAM(allocator);
-	IMX_DMA_BUFFER_UNUSED_PARAM(buffer);
+
+	if (imx_dwl_buffer->mapping_refcount > 0)
+		imx_dwl_buffer->mapping_refcount--;
 
 	/* DWL allocated memory is always mapped, so we don't do anything here. */
 }

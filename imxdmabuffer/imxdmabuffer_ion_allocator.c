@@ -23,6 +23,7 @@ typedef struct
 	imx_physical_address_t physical_address;
 	size_t size;
 	uint8_t* mapped_virtual_address;
+	unsigned int map_flags;
 
 	int mapping_refcount;
 }
@@ -136,6 +137,8 @@ static uint8_t* imx_dma_buffer_ion_allocator_map(ImxDmaBufferAllocator *allocato
 
 	if (imx_ion_buffer->mapped_virtual_address != NULL)
 	{
+		assert(imx_ion_buffer->map_flags == flags);
+
 		/* Buffer is already mapped. Just increment the
 		 * refcount and otherwise do nothing. */
 		imx_ion_buffer->mapping_refcount++;
@@ -151,6 +154,8 @@ static uint8_t* imx_dma_buffer_ion_allocator_map(ImxDmaBufferAllocator *allocato
 
 		mmap_prot |= (flags & IMX_DMA_BUFFER_MAPPING_FLAG_READ) ? PROT_READ : 0;
 		mmap_prot |= (flags & IMX_DMA_BUFFER_MAPPING_FLAG_WRITE) ? PROT_WRITE : 0;
+
+		imx_ion_buffer->map_flags = flags;
 
 		virtual_address = mmap(0, imx_ion_buffer->size, mmap_prot, mmap_flags, imx_ion_buffer->dmabuf_fd, 0);
 		if (virtual_address == MAP_FAILED)

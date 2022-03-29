@@ -129,6 +129,8 @@ void imx_dma_buffer_deallocate(ImxDmaBuffer *buffer);
  * This means that imx_dma_buffer_unmap() must be called exactly the same number of times
  * imx_dma_buffer_map() was called on the same DMA buffer in order to be actually unmapped.
  *
+ * IMPORTANT: Attempts to map an already mapped buffer with different flags are invalid.
+ *
  * @param flags Bitwise OR combination of flags (or 0 if no flags are used, in which case it
  *        will map in regular read/write mode). See ImxDmaBufferMappingFlags for a list of
  *        valid flags.
