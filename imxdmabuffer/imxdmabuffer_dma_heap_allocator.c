@@ -16,6 +16,20 @@
 #include "imxdmabuffer_dma_heap_allocator.h"
 
 
+/* XXX: Currently (2022-04-28), DMA-BUF heaps do not synchrnize properly in
+ * NXP BSPs. Not even the DMA_BUF sync ioctl helps, and according to this commit:
+ * https://source.codeaurora.org/external/imx/gst-plugins-base/commit/?h=MM_04.06.04_2112_L5.15.y&id=6dd8dc7566a76354e3283dc4e2dcecae817bf20e
+ * it even cause issues (which are not documented, unfortunately).
+ *
+ * A workaround is to issue a DMA_BUF_IOCTL_PHYS ioctl, as seen here:
+ * https://source.codeaurora.org/external/imx/gst-plugins-base/commit/?h=MM_04.06.04_2112_L5.15.y&id=d6ad337837085f8dc1ef29eae6844edbf3a3915f
+ * This seems to sync CPU caches with DRAM. It is unclear if this will ever change,
+ * so this workaround, along with the DMA_BUF sync, are kept in code blocks that
+ * can be enabled/disabled with these #defines. */
+//#define USE_DMA_BUF_SYNC_IOCTL
+#define USE_DMA_BUF_PHYS_SYNC_WORKAROUND
+
+
 typedef struct
 {
 	ImxDmaBuffer parent;
@@ -160,12 +174,6 @@ static uint8_t* imx_dma_buffer_dma_heap_allocator_map(ImxDmaBufferAllocator *all
 		int mmap_prot = 0;
 		int mmap_flags = MAP_SHARED;
 		void *virtual_address;
-		struct dma_buf_sync dmabuf_sync;
-
-		memset(&dmabuf_sync, 0, sizeof(dmabuf_sync));
-		dmabuf_sync.flags = DMA_BUF_SYNC_START;
-		dmabuf_sync.flags |= (flags & IMX_DMA_BUFFER_MAPPING_FLAG_READ) ? DMA_BUF_SYNC_READ : 0;
-		dmabuf_sync.flags |= (flags & IMX_DMA_BUFFER_MAPPING_FLAG_WRITE) ? DMA_BUF_SYNC_WRITE : 0;
 
 		mmap_prot |= (flags & IMX_DMA_BUFFER_MAPPING_FLAG_READ) ? PROT_READ : 0;
 		mmap_prot |= (flags & IMX_DMA_BUFFER_MAPPING_FLAG_WRITE) ? PROT_WRITE : 0;
@@ -184,15 +192,41 @@ static uint8_t* imx_dma_buffer_dma_heap_allocator_map(ImxDmaBufferAllocator *all
 			imx_dma_heap_buffer->mapped_virtual_address = virtual_address;
 		}
 
-		if (ioctl(imx_dma_heap_buffer->dmabuf_fd, DMA_BUF_IOCTL_SYNC, &dmabuf_sync) < 0)
+#ifdef USE_DMA_BUF_SYNC_IOCTL
 		{
-			if (error != NULL)
-				*error = errno;
+			struct dma_buf_sync dmabuf_sync;
+			memset(&dmabuf_sync, 0, sizeof(dmabuf_sync));
+			dmabuf_sync.flags = DMA_BUF_SYNC_START;
+			dmabuf_sync.flags |= (flags & IMX_DMA_BUFFER_MAPPING_FLAG_READ) ? DMA_BUF_SYNC_READ : 0;
+			dmabuf_sync.flags |= (flags & IMX_DMA_BUFFER_MAPPING_FLAG_WRITE) ? DMA_BUF_SYNC_WRITE : 0;
 
-			munmap((void *)(imx_dma_heap_buffer->mapped_virtual_address), imx_dma_heap_buffer->size);
-			imx_dma_heap_buffer->mapped_virtual_address = NULL;
-			imx_dma_heap_buffer->mapping_refcount = 0;
+			if (ioctl(imx_dma_heap_buffer->dmabuf_fd, DMA_BUF_IOCTL_SYNC, &dmabuf_sync) < 0)
+			{
+				if (error != NULL)
+					*error = errno;
+
+				munmap((void *)(imx_dma_heap_buffer->mapped_virtual_address), imx_dma_heap_buffer->size);
+				imx_dma_heap_buffer->mapped_virtual_address = NULL;
+				imx_dma_heap_buffer->mapping_refcount = 0;
+			}
 		}
+#endif
+
+#ifdef USE_DMA_BUF_PHYS_SYNC_WORKAROUND
+		{
+			struct dma_buf_phys dma_phys;
+
+			if (ioctl(imx_dma_heap_buffer->dmabuf_fd, DMA_BUF_IOCTL_PHYS, &dma_phys) < 0)
+			{
+				if (error != NULL)
+					*error = errno;
+
+				munmap((void *)(imx_dma_heap_buffer->mapped_virtual_address), imx_dma_heap_buffer->size);
+				imx_dma_heap_buffer->mapped_virtual_address = NULL;
+				imx_dma_heap_buffer->mapping_refcount = 0;
+			}
+		}
+#endif
 	}
 
 	return imx_dma_heap_buffer->mapped_virtual_address;
@@ -221,7 +255,16 @@ static void imx_dma_buffer_dma_heap_allocator_unmap(ImxDmaBufferAllocator *alloc
 	dmabuf_sync.flags |= (imx_dma_heap_buffer->map_flags & IMX_DMA_BUFFER_MAPPING_FLAG_READ) ? DMA_BUF_SYNC_READ : 0;
 	dmabuf_sync.flags |= (imx_dma_heap_buffer->map_flags & IMX_DMA_BUFFER_MAPPING_FLAG_WRITE) ? DMA_BUF_SYNC_WRITE : 0;
 
+#ifdef USE_DMA_BUF_SYNC_IOCTL
 	ioctl(imx_dma_heap_buffer->dmabuf_fd, DMA_BUF_IOCTL_SYNC, &dmabuf_sync);
+#endif
+
+#ifdef USE_DMA_BUF_PHYS_SYNC_WORKAROUND
+	{
+		struct dma_buf_phys dma_phys;
+		ioctl(imx_dma_heap_buffer->dmabuf_fd, DMA_BUF_IOCTL_PHYS, &dma_phys);
+	}
+#endif
 
 	munmap((void *)(imx_dma_heap_buffer->mapped_virtual_address), imx_dma_heap_buffer->size);
 	imx_dma_heap_buffer->mapped_virtual_address = NULL;
