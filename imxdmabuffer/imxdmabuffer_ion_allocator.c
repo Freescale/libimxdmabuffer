@@ -137,7 +137,7 @@ static uint8_t* imx_dma_buffer_ion_allocator_map(ImxDmaBufferAllocator *allocato
 
 	if (imx_ion_buffer->mapped_virtual_address != NULL)
 	{
-		assert(imx_ion_buffer->map_flags == flags);
+		assert((imx_ion_buffer->map_flags & flags) == flags);
 
 		/* Buffer is already mapped. Just increment the
 		 * refcount and otherwise do nothing. */
