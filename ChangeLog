@@ -1,3 +1,11 @@
+==== version 1.1.1 (2022-04-30) ====
+
+* Add sync access functions to ensure cache
+  coherency when allocating cached DMA memory;
+  only done by dma-heap allocator at this time
+* Relax buffer mapping flags checks
+* Add API functions to retrieve dma-heap / ION FDs
+
 ==== version 1.1.0 (2021-10-29) ====
 
 * Add dma-heap allocator
