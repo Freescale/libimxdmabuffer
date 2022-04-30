@@ -106,6 +106,24 @@ void imx_dma_buffer_unmap(ImxDmaBuffer *buffer)
 }
 
 
+void imx_dma_buffer_start_sync_session(ImxDmaBuffer *buffer)
+{
+	assert(buffer != NULL);
+	assert(buffer->allocator != NULL);
+	assert(buffer->allocator->start_sync_session != NULL);
+	buffer->allocator->start_sync_session(buffer->allocator, buffer);
+}
+
+
+void imx_dma_buffer_stop_sync_session(ImxDmaBuffer *buffer)
+{
+	assert(buffer != NULL);
+	assert(buffer->allocator != NULL);
+	assert(buffer->allocator->stop_sync_session != NULL);
+	buffer->allocator->stop_sync_session(buffer->allocator, buffer);
+}
+
+
 imx_physical_address_t imx_dma_buffer_get_physical_address(ImxDmaBuffer *buffer)
 {
 	assert(buffer != NULL);
@@ -201,6 +219,8 @@ static ImxDmaBufferAllocator wrapped_dma_buffer_allocator =
 	wrapped_dma_buffer_allocator_deallocate,
 	wrapped_dma_buffer_allocator_map,
 	wrapped_dma_buffer_allocator_unmap,
+	imx_dma_buffer_noop_start_sync_session_func,
+	imx_dma_buffer_noop_stop_sync_session_func,
 	wrapped_dma_buffer_allocator_get_physical_address,
 	wrapped_dma_buffer_allocator_get_fd,
 	wrapped_dma_buffer_allocator_get_size,

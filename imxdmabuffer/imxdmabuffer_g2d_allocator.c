@@ -139,7 +139,7 @@ static uint8_t* imx_dma_buffer_g2d_allocator_map(ImxDmaBufferAllocator *allocato
 	 * (Other allocators perform more steps than this.) */
 	if (imx_g2d_buffer->mapping_refcount > 0)
 	{
-		assert((imx_g2d_buffer->map_flags & flags) == flags);
+		assert((imx_dwl_buffer->map_flags & flags & IMX_DMA_BUFFER_MAPPING_READWRITE_FLAG_MASK) == (flags & IMX_DMA_BUFFER_MAPPING_READWRITE_FLAG_MASK));
 		imx_g2d_buffer->mapping_refcount++;
 	}
 	else
@@ -202,6 +202,8 @@ ImxDmaBufferAllocator* imx_dma_buffer_g2d_allocator_new(void)
 	imx_g2d_allocator->parent.deallocate = imx_dma_buffer_g2d_allocator_deallocate;
 	imx_g2d_allocator->parent.map = imx_dma_buffer_g2d_allocator_map;
 	imx_g2d_allocator->parent.unmap = imx_dma_buffer_g2d_allocator_unmap;
+	imx_g2d_allocator->parent.start_sync_session = imx_dma_buffer_noop_start_sync_session_func;
+	imx_g2d_allocator->parent.stop_sync_session = imx_dma_buffer_noop_stop_sync_session_func;
 	imx_g2d_allocator->parent.get_physical_address = imx_dma_buffer_g2d_allocator_get_physical_address;
 	imx_g2d_allocator->parent.get_fd = imx_dma_buffer_g2d_allocator_get_fd;
 	imx_g2d_allocator->parent.get_size = imx_dma_buffer_g2d_allocator_get_size;

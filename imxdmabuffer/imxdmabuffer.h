@@ -18,9 +18,15 @@ typedef enum
 	/* Map memory for CPU write access. */
 	IMX_DMA_BUFFER_MAPPING_FLAG_WRITE       = (1UL << 0),
 	/* Map memory for CPU read access. */
-	IMX_DMA_BUFFER_MAPPING_FLAG_READ        = (1UL << 1)
+	IMX_DMA_BUFFER_MAPPING_FLAG_READ        = (1UL << 1),
+	/* Access sync is done manually by explicitly calling
+	 * imx_dma_buffer_start_sync_session() and
+	 * imx_dma_buffer_stop_sync_session(). */
+	IMX_DMA_BUFFER_MAPPING_FLAG_MANUAL_SYNC = (1UL << 2)
 }
 ImxDmaBufferMappingFlags;
+
+#define IMX_DMA_BUFFER_MAPPING_READWRITE_FLAG_MASK (IMX_DMA_BUFFER_MAPPING_FLAG_READ | IMX_DMA_BUFFER_MAPPING_FLAG_WRITE)
 
 
 typedef struct _ImxDmaBuffer ImxDmaBuffer;
@@ -63,12 +69,15 @@ struct _ImxDmaBufferAllocator
 	uint8_t* (*map)(ImxDmaBufferAllocator *allocator, ImxDmaBuffer *buffer, unsigned int flags, int *error);
 	void (*unmap)(ImxDmaBufferAllocator *allocator, ImxDmaBuffer *buffer);
 
+    void (*start_sync_session)(ImxDmaBufferAllocator *allocator, ImxDmaBuffer *buffer);
+    void (*stop_sync_session)(ImxDmaBufferAllocator *allocator, ImxDmaBuffer *buffer);
+
 	imx_physical_address_t (*get_physical_address)(ImxDmaBufferAllocator *allocator, ImxDmaBuffer *buffer);
 	int (*get_fd)(ImxDmaBufferAllocator *allocator, ImxDmaBuffer *buffer);
 
 	size_t (*get_size)(ImxDmaBufferAllocator *allocator, ImxDmaBuffer *buffer);
 
-	void* _reserved[IMX_DMA_BUFFER_PADDING];
+	void* _reserved[IMX_DMA_BUFFER_PADDING - 2];
 };
 
 
@@ -129,12 +138,20 @@ void imx_dma_buffer_deallocate(ImxDmaBuffer *buffer);
  * This means that imx_dma_buffer_unmap() must be called exactly the same number of times
  * imx_dma_buffer_map() was called on the same DMA buffer in order to be actually unmapped.
  *
- * IMPORTANT: Attempts to map an already mapped buffer with different flags are only valid
- * if the new flags are a strict subset of the old flags. For example, if the buffer was
- * already mapped with the read and write flags, and another, redundant mapping attempt is
- * made with only the read flag, then this is valid. Another example: If the buffer was
- * already mapped, but with the read flag only, and another, redundant mapping attempt is
+ * IMPORTANT: Attempts to map an already mapped buffer with different read/write flags are
+ * only valid if the new flags are a strict subset of the old flags. For example, if the
+ * buffer was already mapped with the read and write flags, and another, redundant mapping
+ * attempt is made with only the read flag, then this is valid. Another example: If the buffer
+ * was already mapped, but with the read flag only, and another, redundant mapping attempt is
  * made with only the write flag, then this is invalid.
+ *
+ * IMX_DMA_BUFFER_MAPPING_FLAG_MANUAL_SYNC however is not subject to this restriction.
+ * This flag is only applied to the first map / last unmap. In redundant (un)mapping calls,
+ * it is ignored.
+ *
+ * This function automatically synchronizes access to the mapped region, behaving like an
+ * implicit imx_dma_buffer_start_sync_session() call. To ṕrevent this behavior, add
+ * IMX_DMA_BUFFER_MAPPING_FLAG_MANUAL_SYNC to the flags.
  *
  * @param flags Bitwise OR combination of flags (or 0 if no flags are used, in which case it
  *        will map in regular read/write mode). See ImxDmaBufferMappingFlags for a list of
@@ -152,8 +169,58 @@ uint8_t* imx_dma_buffer_map(ImxDmaBuffer *buffer, unsigned int flags, int *error
  * If the buffer isn't currently mapped, this function does nothing. As explained in
  * imx_dma_buffer_map(), the buffer isn't actually unmapped until the internal reference
  * counter reaches zero.
+ *
+ * This function automatically synchronizes access to the mapped region, behaving like an
+ * implicit imx_dma_buffer_stop_sync_session() call. To ṕrevent this behavior, add
+ * IMX_DMA_BUFFER_MAPPING_FLAG_MANUAL_SYNC to the flags passed to imx_dma_buffer_map().
  */
 void imx_dma_buffer_unmap(ImxDmaBuffer *buffer);
+
+/* Starts a synchronized map access session.
+ *
+ * When cached DMA buffers are allocated, it is important to maintain cache coherency.
+ * Otherwise, data in the CPU cache and data in memory might differ, leading to
+ * undefined behavior. This function, along with imx_dma_buffer_stop_sync_session(),
+ * establishes a "session" in which it is guaranteed that coherency will be established
+ * at the beginning and the end of the session. At the start, the CPU cache will be
+ * repopulated with the contents of the underlying memory region (if the cache is stale)
+ * if the IMX_DMA_BUFFER_MAPPING_FLAG_READ flag was passed to imx_dma_buffer_map().
+ * When the session stops, the contents of the CPU cache are written to the underlying
+ * memory region if the IMX_DMA_BUFFER_MAPPING_FLAG_WRITE flag was passed to
+ * imx_dma_buffer_map(). That way, reading from DMA memory and writing to DMA memory
+ * both can be done without breaking cache coherency.
+ *
+ * Normally, users do not need to call this, since the map and unmap functions will
+ * do this automatically. If IMX_DMA_BUFFER_MAPPING_FLAG_MANUAL_SYNC was passed to
+ * imx_dma_buffer_map() though, mapping and unmapping will _not_ automatically
+ * handle the sync, and users have to call imx_dma_buffer_start_sync_session() and
+ * imx_dma_buffer_stop_sync_session() manually. This can be useful if synchronization
+ * needs to happen sometime while the buffer is mapped, for example if the buffer
+ * is (un)mapped as part of a device initialization / shutdown. In such cases, the
+ * buffer needs to stay mapped, but cache coherency may have to be maintained at
+ * some point.
+ *
+ * If IMX_DMA_BUFFER_MAPPING_FLAG_MANUAL_SYNC was not passed to imx_dma_buffer_map(),
+ * this function does nothing.
+ *
+ * The buffer must have been mapped before such a session starts, and the session
+ * must be stopped before the buffer is unmapped.
+ *
+ * If the allocator allocates uncached DMA memory, this function does nothing.
+ */
+void imx_dma_buffer_start_sync_session(ImxDmaBuffer *buffer);
+
+/* Stops a synchronized map access session.
+ *
+ * See imx_dma_buffer_start_sync_session() for an explanation about synchronized
+ * map access.
+ *
+ * If IMX_DMA_BUFFER_MAPPING_FLAG_MANUAL_SYNC was not passed to imx_dma_buffer_map(),
+ * this function does nothing.
+ *
+ * If the allocator allocates uncached DMA memory, this function does nothing.
+ */
+void imx_dma_buffer_stop_sync_session(ImxDmaBuffer *buffer);
 
 /* Gets the physical address associated with the DMA buffer.
  *

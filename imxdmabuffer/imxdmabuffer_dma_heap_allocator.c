@@ -41,6 +41,7 @@ typedef struct
 	unsigned int map_flags;
 
 	int mapping_refcount;
+	int sync_started;
 }
 ImxDmaBufferDmaHeapBuffer;
 
@@ -61,6 +62,10 @@ static ImxDmaBuffer* imx_dma_buffer_dma_heap_allocator_allocate(ImxDmaBufferAllo
 static void imx_dma_buffer_dma_heap_allocator_deallocate(ImxDmaBufferAllocator *allocator, ImxDmaBuffer *buffer);
 static uint8_t* imx_dma_buffer_dma_heap_allocator_map(ImxDmaBufferAllocator *allocator, ImxDmaBuffer *buffer, unsigned int flags, int *error);
 static void imx_dma_buffer_dma_heap_allocator_unmap(ImxDmaBufferAllocator *allocator, ImxDmaBuffer *buffer);
+static void imx_dma_buffer_dma_heap_allocator_start_sync_session(ImxDmaBufferAllocator *allocator, ImxDmaBuffer *buffer);
+static void imx_dma_buffer_dma_heap_allocator_start_sync_session_impl(ImxDmaBufferDmaHeapBuffer *imx_dma_heap_buffer);
+static void imx_dma_buffer_dma_heap_allocator_stop_sync_session(ImxDmaBufferAllocator *allocator, ImxDmaBuffer *buffer);
+static void imx_dma_buffer_dma_heap_allocator_stop_sync_session_impl(ImxDmaBufferDmaHeapBuffer *imx_dma_heap_buffer);
 static imx_physical_address_t imx_dma_buffer_dma_heap_allocator_get_physical_address(ImxDmaBufferAllocator *allocator, ImxDmaBuffer *buffer);
 static int imx_dma_buffer_dma_heap_allocator_get_fd(ImxDmaBufferAllocator *allocator, ImxDmaBuffer *buffer);
 static size_t imx_dma_buffer_dma_heap_allocator_get_size(ImxDmaBufferAllocator *allocator, ImxDmaBuffer *buffer);
@@ -121,6 +126,7 @@ static ImxDmaBuffer* imx_dma_buffer_dma_heap_allocator_allocate(ImxDmaBufferAllo
 	imx_dma_heap_buffer->size = size;
 	imx_dma_heap_buffer->mapped_virtual_address = NULL;
 	imx_dma_heap_buffer->mapping_refcount = 0;
+	imx_dma_heap_buffer->sync_started = 0;
 
 	return (ImxDmaBuffer *)imx_dma_heap_buffer;
 }
@@ -135,6 +141,8 @@ static void imx_dma_buffer_dma_heap_allocator_deallocate(ImxDmaBufferAllocator *
 
 	if (imx_dma_heap_buffer->mapped_virtual_address != NULL)
 	{
+		imx_dma_buffer_dma_heap_allocator_stop_sync_session(allocator, buffer);
+
 		/* Set mapping_refcount to 1 to force an
 		* imx_dma_buffer_dma_heap_allocator_unmap() to actually unmap the buffer. */
 		imx_dma_heap_buffer->mapping_refcount = 1;
@@ -155,12 +163,12 @@ static uint8_t* imx_dma_buffer_dma_heap_allocator_map(ImxDmaBufferAllocator *all
 	assert(imx_dma_heap_buffer != NULL);
 	assert(imx_dma_heap_buffer->dmabuf_fd > 0);
 
-	if (flags == 0)
-		flags = IMX_DMA_BUFFER_MAPPING_FLAG_READ | IMX_DMA_BUFFER_MAPPING_FLAG_WRITE;
+	if ((flags & IMX_DMA_BUFFER_MAPPING_READWRITE_FLAG_MASK) == 0)
+		flags |= IMX_DMA_BUFFER_MAPPING_FLAG_READ | IMX_DMA_BUFFER_MAPPING_FLAG_WRITE;
 
 	if (imx_dma_heap_buffer->mapped_virtual_address != NULL)
 	{
-		assert((imx_dma_heap_buffer->map_flags & flags) == flags);
+		assert((imx_dma_heap_buffer->map_flags & flags & IMX_DMA_BUFFER_MAPPING_READWRITE_FLAG_MASK) == (flags & IMX_DMA_BUFFER_MAPPING_READWRITE_FLAG_MASK));
 
 		/* Buffer is already mapped. Just increment the
 		 * refcount and otherwise do nothing. */
@@ -192,41 +200,8 @@ static uint8_t* imx_dma_buffer_dma_heap_allocator_map(ImxDmaBufferAllocator *all
 			imx_dma_heap_buffer->mapped_virtual_address = virtual_address;
 		}
 
-#ifdef USE_DMA_BUF_SYNC_IOCTL
-		{
-			struct dma_buf_sync dmabuf_sync;
-			memset(&dmabuf_sync, 0, sizeof(dmabuf_sync));
-			dmabuf_sync.flags = DMA_BUF_SYNC_START;
-			dmabuf_sync.flags |= (flags & IMX_DMA_BUFFER_MAPPING_FLAG_READ) ? DMA_BUF_SYNC_READ : 0;
-			dmabuf_sync.flags |= (flags & IMX_DMA_BUFFER_MAPPING_FLAG_WRITE) ? DMA_BUF_SYNC_WRITE : 0;
-
-			if (ioctl(imx_dma_heap_buffer->dmabuf_fd, DMA_BUF_IOCTL_SYNC, &dmabuf_sync) < 0)
-			{
-				if (error != NULL)
-					*error = errno;
-
-				munmap((void *)(imx_dma_heap_buffer->mapped_virtual_address), imx_dma_heap_buffer->size);
-				imx_dma_heap_buffer->mapped_virtual_address = NULL;
-				imx_dma_heap_buffer->mapping_refcount = 0;
-			}
-		}
-#endif
-
-#ifdef USE_DMA_BUF_PHYS_SYNC_WORKAROUND
-		{
-			struct dma_buf_phys dma_phys;
-
-			if (ioctl(imx_dma_heap_buffer->dmabuf_fd, DMA_BUF_IOCTL_PHYS, &dma_phys) < 0)
-			{
-				if (error != NULL)
-					*error = errno;
-
-				munmap((void *)(imx_dma_heap_buffer->mapped_virtual_address), imx_dma_heap_buffer->size);
-				imx_dma_heap_buffer->mapped_virtual_address = NULL;
-				imx_dma_heap_buffer->mapping_refcount = 0;
-			}
-		}
-#endif
+		if (!(flags & IMX_DMA_BUFFER_MAPPING_FLAG_MANUAL_SYNC))
+			imx_dma_buffer_dma_heap_allocator_start_sync_session_impl(imx_dma_heap_buffer);
 	}
 
 	return imx_dma_heap_buffer->mapped_virtual_address;
@@ -236,7 +211,6 @@ static uint8_t* imx_dma_buffer_dma_heap_allocator_map(ImxDmaBufferAllocator *all
 static void imx_dma_buffer_dma_heap_allocator_unmap(ImxDmaBufferAllocator *allocator, ImxDmaBuffer *buffer)
 {
 	ImxDmaBufferDmaHeapBuffer *imx_dma_heap_buffer = (ImxDmaBufferDmaHeapBuffer *)buffer;
-	struct dma_buf_sync dmabuf_sync;
 
 	IMX_DMA_BUFFER_UNUSED_PARAM(allocator);
 
@@ -250,24 +224,101 @@ static void imx_dma_buffer_dma_heap_allocator_unmap(ImxDmaBufferAllocator *alloc
 	if (imx_dma_heap_buffer->mapping_refcount != 0)
 		return;
 
-	memset(&dmabuf_sync, 0, sizeof(dmabuf_sync));
-	dmabuf_sync.flags = DMA_BUF_SYNC_END;
-	dmabuf_sync.flags |= (imx_dma_heap_buffer->map_flags & IMX_DMA_BUFFER_MAPPING_FLAG_READ) ? DMA_BUF_SYNC_READ : 0;
-	dmabuf_sync.flags |= (imx_dma_heap_buffer->map_flags & IMX_DMA_BUFFER_MAPPING_FLAG_WRITE) ? DMA_BUF_SYNC_WRITE : 0;
+	if (!(imx_dma_heap_buffer->map_flags & IMX_DMA_BUFFER_MAPPING_FLAG_MANUAL_SYNC))
+		imx_dma_buffer_dma_heap_allocator_stop_sync_session_impl(imx_dma_heap_buffer);
 
+	munmap((void *)(imx_dma_heap_buffer->mapped_virtual_address), imx_dma_heap_buffer->size);
+	imx_dma_heap_buffer->mapped_virtual_address = NULL;
+}
+
+
+static void imx_dma_buffer_dma_heap_allocator_start_sync_session(ImxDmaBufferAllocator *allocator, ImxDmaBuffer *buffer)
+{
+	ImxDmaBufferDmaHeapBuffer *imx_dma_heap_buffer = (ImxDmaBufferDmaHeapBuffer *)buffer;
+
+	IMX_DMA_BUFFER_UNUSED_PARAM(allocator);
+
+	if (imx_dma_heap_buffer->sync_started)
+		return;
+	if (!(imx_dma_heap_buffer->map_flags & IMX_DMA_BUFFER_MAPPING_FLAG_MANUAL_SYNC))
+		return;
+
+	imx_dma_buffer_dma_heap_allocator_start_sync_session_impl(imx_dma_heap_buffer);
+}
+
+
+static void imx_dma_buffer_dma_heap_allocator_start_sync_session_impl(ImxDmaBufferDmaHeapBuffer *imx_dma_heap_buffer)
+{
 #ifdef USE_DMA_BUF_SYNC_IOCTL
-	ioctl(imx_dma_heap_buffer->dmabuf_fd, DMA_BUF_IOCTL_SYNC, &dmabuf_sync);
+	{
+		struct dma_buf_sync dmabuf_sync;
+		memset(&dmabuf_sync, 0, sizeof(dmabuf_sync));
+		dmabuf_sync.flags = DMA_BUF_SYNC_START;
+		dmabuf_sync.flags |= (imx_dma_heap_buffer->map_flags & IMX_DMA_BUFFER_MAPPING_FLAG_READ) ? DMA_BUF_SYNC_READ : 0;
+		dmabuf_sync.flags |= (imx_dma_heap_buffer->map_flags & IMX_DMA_BUFFER_MAPPING_FLAG_WRITE) ? DMA_BUF_SYNC_WRITE : 0;
+
+		ioctl(imx_dma_heap_buffer->dmabuf_fd, DMA_BUF_IOCTL_SYNC, &dmabuf_sync);
+	}
 #endif
 
 #ifdef USE_DMA_BUF_PHYS_SYNC_WORKAROUND
+	/* Use the DMA_BUF_IOCTL_PHYS here to force the CPU cache to
+	 * be repopulated with the contents of the actual memory block.
+	 * Otherwise, CPU read operations might use stale cached data. */
+	if (imx_dma_heap_buffer->map_flags & IMX_DMA_BUFFER_MAPPING_FLAG_READ)
 	{
 		struct dma_buf_phys dma_phys;
 		ioctl(imx_dma_heap_buffer->dmabuf_fd, DMA_BUF_IOCTL_PHYS, &dma_phys);
 	}
 #endif
 
-	munmap((void *)(imx_dma_heap_buffer->mapped_virtual_address), imx_dma_heap_buffer->size);
-	imx_dma_heap_buffer->mapped_virtual_address = NULL;
+	imx_dma_heap_buffer->sync_started = 1;
+}
+
+
+static void imx_dma_buffer_dma_heap_allocator_stop_sync_session(ImxDmaBufferAllocator *allocator, ImxDmaBuffer *buffer)
+{
+	ImxDmaBufferDmaHeapBuffer *imx_dma_heap_buffer = (ImxDmaBufferDmaHeapBuffer *)buffer;
+
+	IMX_DMA_BUFFER_UNUSED_PARAM(allocator);
+
+	assert(imx_dma_heap_buffer->mapped_virtual_address != 0);
+
+	if (!imx_dma_heap_buffer->sync_started)
+		return;
+	if (!(imx_dma_heap_buffer->map_flags & IMX_DMA_BUFFER_MAPPING_FLAG_MANUAL_SYNC))
+		return;
+
+	imx_dma_buffer_dma_heap_allocator_stop_sync_session_impl(imx_dma_heap_buffer);
+}
+
+
+static void imx_dma_buffer_dma_heap_allocator_stop_sync_session_impl(ImxDmaBufferDmaHeapBuffer *imx_dma_heap_buffer)
+{
+#ifdef USE_DMA_BUF_SYNC_IOCTL
+	{
+		struct dma_buf_sync dmabuf_sync;
+		memset(&dmabuf_sync, 0, sizeof(dmabuf_sync));
+		dmabuf_sync.flags = DMA_BUF_SYNC_END;
+		dmabuf_sync.flags |= (imx_dma_heap_buffer->map_flags & IMX_DMA_BUFFER_MAPPING_FLAG_READ) ? DMA_BUF_SYNC_READ : 0;
+		dmabuf_sync.flags |= (imx_dma_heap_buffer->map_flags & IMX_DMA_BUFFER_MAPPING_FLAG_WRITE) ? DMA_BUF_SYNC_WRITE : 0;
+
+		ioctl(imx_dma_heap_buffer->dmabuf_fd, DMA_BUF_IOCTL_SYNC, &dmabuf_sync);
+	}
+#endif
+
+#ifdef USE_DMA_BUF_PHYS_SYNC_WORKAROUND
+	/* Use the DMA_BUF_IOCTL_PHYS here to force the CPU cache to be
+	 * written to the actual memory block. Otherwise, device DMA
+	 * access to memory may not use the data the CPU just wrote. */
+	if (imx_dma_heap_buffer->map_flags & IMX_DMA_BUFFER_MAPPING_FLAG_WRITE)
+	{
+		struct dma_buf_phys dma_phys;
+		ioctl(imx_dma_heap_buffer->dmabuf_fd, DMA_BUF_IOCTL_PHYS, &dma_phys);
+	}
+#endif
+
+	imx_dma_heap_buffer->sync_started = 0;
 }
 
 
@@ -318,6 +369,8 @@ ImxDmaBufferAllocator* imx_dma_buffer_dma_heap_allocator_new(
 	imx_dma_heap_allocator->parent.deallocate = imx_dma_buffer_dma_heap_allocator_deallocate;
 	imx_dma_heap_allocator->parent.map = imx_dma_buffer_dma_heap_allocator_map;
 	imx_dma_heap_allocator->parent.unmap = imx_dma_buffer_dma_heap_allocator_unmap;
+	imx_dma_heap_allocator->parent.start_sync_session = imx_dma_buffer_dma_heap_allocator_start_sync_session;
+	imx_dma_heap_allocator->parent.stop_sync_session = imx_dma_buffer_dma_heap_allocator_stop_sync_session;
 	imx_dma_heap_allocator->parent.get_physical_address = imx_dma_buffer_dma_heap_allocator_get_physical_address;
 	imx_dma_heap_allocator->parent.get_fd = imx_dma_buffer_dma_heap_allocator_get_fd;
 	imx_dma_heap_allocator->parent.get_size = imx_dma_buffer_dma_heap_allocator_get_size;
