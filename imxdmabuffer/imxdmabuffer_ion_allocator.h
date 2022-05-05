@@ -55,6 +55,9 @@ extern "C" {
  */
 ImxDmaBufferAllocator* imx_dma_buffer_ion_allocator_new(int ion_fd, unsigned int ion_heap_id_mask, unsigned int ion_heap_flags, int *error);
 
+/* Returns the file descriptor of the opened ION device node this allocator uses. */
+int imx_dma_buffer_ion_allocator_get_ion_fd(ImxDmaBufferAllocator *allocator);
+
 
 /* Allocates a DMA buffer via ION and returns the file descriptor representing the buffer.
  *

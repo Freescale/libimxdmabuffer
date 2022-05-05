@@ -42,6 +42,9 @@ ImxDmaBufferAllocator* imx_dma_buffer_dma_heap_allocator_new(
 	int *error
 );
 
+/* Returns the file descriptor of the opened dma-heap device node this allocator uses. */
+int imx_dma_buffer_dma_heap_allocator_get_dma_heap_fd(ImxDmaBufferAllocator *allocator);
+
 
 /* Allocates a DMA buffer with dma-heap and returns the file descriptor representing the buffer.
  *

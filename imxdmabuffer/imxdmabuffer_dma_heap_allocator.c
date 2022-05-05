@@ -395,6 +395,13 @@ ImxDmaBufferAllocator* imx_dma_buffer_dma_heap_allocator_new(
 }
 
 
+int imx_dma_buffer_dma_heap_allocator_get_dma_heap_fd(ImxDmaBufferAllocator *allocator)
+{
+	ImxDmaBufferDmaHeapAllocator *imx_dma_heap_allocator = (ImxDmaBufferDmaHeapAllocator *)allocator;
+	return imx_dma_heap_allocator->dma_heap_fd;
+}
+
+
 int imx_dma_buffer_dma_heap_allocate_dmabuf(
 	int dma_heap_fd,
 	size_t size,

@@ -256,6 +256,13 @@ ImxDmaBufferAllocator* imx_dma_buffer_ion_allocator_new(int ion_fd, unsigned int
 }
 
 
+int imx_dma_buffer_ion_allocator_get_ion_fd(ImxDmaBufferAllocator *allocator)
+{
+	ImxDmaBufferIonAllocator *imx_ion_allocator = (ImxDmaBufferIonAllocator *)allocator;
+	return imx_ion_allocator->ion_fd;
+}
+
+
 
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
