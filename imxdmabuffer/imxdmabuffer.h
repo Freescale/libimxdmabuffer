@@ -257,6 +257,8 @@ size_t imx_dma_buffer_get_size(ImxDmaBuffer *buffer);
  * First, initialize the structure with imx_dma_buffer_init_wrapped_buffer().
  * Then fill the fd, physical_address, and size values.
  *
+ * This does not take ownership over any passed fd.
+ *
  * map_func / unmap_func are used in the imx_dma_buffer_map() / imx_dma_buffer_unmap()
  * calls. If these function pointers are NULL, no mapping will be done.
  * NOTE: imx_dma_buffer_map() will return a NULL pointer in this case.
