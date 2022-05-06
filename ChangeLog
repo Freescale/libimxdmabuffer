@@ -1,3 +1,11 @@
+==== version 1.1.2 (2022-05-06) ====
+
+* waf: update to 2.0.23
+* dma-heap: Add support for uncached dma-heap memory
+  imx_dma_buffer_dma_heap_allocator_new_from_fd() is
+  a new function that partially deprecates the dma_heap_fd
+  argument of imx_dma_buffer_dma_heap_allocator_new().
+
 ==== version 1.1.1 (2022-04-30) ====
 
 * Add sync access functions to ensure cache
