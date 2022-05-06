@@ -52,6 +52,7 @@ def options(opt):
 	opt.add_option('--imx-linux-headers-path', action='store', default='', help='path to i.MX linux headers (where linux/mxcfb.h etc. can be found)')
 	opt.add_option('--with-dma-heap-allocator', action='store', default = 'auto', help = 'build with dma-heap allocator support (valid values: yes/no/auto)')
 	opt.add_option('--dma-heap-device-node-path', action='store', default='/dev/dma_heap/linux,cma', help='path to dma-heap device node')
+	opt.add_option('--dma-heap-uncached-memory', action='store_true', default = False, help = 'dma-heap allocator allocates uncached DMA memory (default: allocates cached DMA memory)')
 	opt.add_option('--with-ion-allocator', action='store', default = 'auto', help = 'build with ION allocator support (valid values: yes/no/auto)')
 	opt.add_option('--with-dwl-allocator', action='store', default = 'auto', help = 'build with DWL allocator support (valid values: yes/no/auto)')
 	opt.add_option('--hantro-decoder-version', action='store', default = '', help = 'Hantro decoder version to use for DWL based allocations (valid values: G1 G2)')
@@ -125,10 +126,14 @@ def configure(conf):
 			if not dma_heap_device_node_path:
 				conf.fatal('dma-heap device node path must not be an empty string')
 			Logs.pprint('NORMAL', 'dma-heap device node path: ' + dma_heap_device_node_path)
+			conf.msg('dma-heap allocates uncached memory', 'yes' if conf.options.dma_heap_uncached_memory else 'no')
 
 			conf.env['WITH_DMA_HEAP_ALLOCATOR'] = 1
 			conf.define('IMXDMABUFFER_DMA_HEAP_ALLOCATOR_ENABLED', 1)
 			conf.define('IMXDMABUFFER_DMA_HEAP_DEVICE_NODE_PATH', dma_heap_device_node_path)
+			if conf.options.dma_heap_uncached_memory:
+				conf.define('IMXDMABUFFER_DMA_HEAP_ALLOCATES_UNCACHED_MEMORY', 1)
+
 			conf.env['EXTRA_USELIBS'] += ['IMXHEADERS']
 			conf.env['EXTRA_HEADER_FILES'] += ['imxdmabuffer/imxdmabuffer_dma_heap_allocator.h']
 			conf.env['EXTRA_SOURCE_FILES'] += ['imxdmabuffer/imxdmabuffer_dma_heap_allocator.c']

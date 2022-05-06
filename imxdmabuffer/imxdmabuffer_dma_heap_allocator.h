@@ -21,11 +21,19 @@ extern unsigned int const IMX_DMA_BUFFER_DMA_HEAP_ALLOCATOR_DEFAULT_FD_FLAGS;
  * a DMA-BUF FD. This allocator produces ImxDmaBuffer instances that are
  * DMA-BUF backed. imx_dma_buffer_get_fd() returns the DMA-BUF FD.
  *
+ * If dma_heap_fd is <0, an internal dma-heap FD (not to be confused with
+ * DMA-BUF FDs) is used. The device node path to use is configured at the time
+ * when libimxdmabuffer is built. Typically, the default device node path
+ * is set to "/dev/dma_heap/linux,cma". Whether that dma-heap allocates
+ * cached or uncached memory is also defined at build time.
+ *
+ * NOTE: Using this with dma_heap_fd set to a valid FD is deprecated, because
+ * this function does not allow for specifying whether this dma-heap allocates
+ * cached memory. Instead, use imx_dma_buffer_dma_heap_allocator_new_from_fd()
+ * to reuse an already openeded dma-heap device node.
+ *
  * @param dma_heap_fd File descriptor of an open instance of the dma-heap
- *        device node. If this is set to <0, an internal dma-heap FD is
- *        used. The device node path to use is configured at the time when
- *        libimxdmabuffer is built. Typically, the default device node path
- *        is set to "/dev/dma_heap/linux,cma".
+ *        device node, or <0 to let the allocator open an internal FD.
  * @param heap_flags dma-heap flags. To use default flags, set this to
  *        IMX_DMA_BUFFER_DMA_HEAP_ALLOCATOR_DEFAULT_HEAP_FLAGS.
  * @param fd_flags Flags for the DMA-BUF FD of newly allocated buffers.
@@ -40,6 +48,34 @@ ImxDmaBufferAllocator* imx_dma_buffer_dma_heap_allocator_new(
 	unsigned int heap_flags,
 	unsigned int fd_flags,
 	int *error
+);
+
+/* Creates a new DMA buffer allocator that uses an already opened dma-heap FD.
+ *
+ * This is similar to imx_dma_buffer_dma_heap_allocator_new(), except that it
+ * does not open its own dma-heap FD. Instead, it reuses an existing one.
+ *
+ * This also allows for specifying whether that dma-heap allocates cached
+ * memory or not, which is important for performance reasons: If the dma-heap
+ * allocates uncached memory, then the imx_dma_buffer_start_sync_session()
+ * and imx_dma_buffer_stop_sync_session() functions do nothing.
+ *
+ * @param dma_heap_fd File descriptor of an open instance of the dma-heap
+ *        device node. Must be a valid FD.
+ * @param heap_flags dma-heap flags. To use default flags, set this to
+ *        IMX_DMA_BUFFER_DMA_HEAP_ALLOCATOR_DEFAULT_HEAP_FLAGS.
+ * @param fd_flags Flags for the DMA-BUF FD of newly allocated buffers.
+ *        Set this to IMX_DMA_BUFFER_DMA_HEAP_ALLOCATOR_DEFAULT_FD_FLAGS
+ *        to use default flags.
+ * @param is_cached_memory_heap If nonzero, then this dma-heap is considered
+ *        as being one that allocates cached memory. If zero, it is considered
+ *        an uncached DMA memory allocator.
+ */
+ImxDmaBufferAllocator* imx_dma_buffer_dma_heap_allocator_new_from_fd(
+    int dma_heap_fd,
+    unsigned int heap_flags,
+    unsigned int fd_flags,
+    int is_cached_memory_heap
 );
 
 /* Returns the file descriptor of the opened dma-heap device node this allocator uses. */

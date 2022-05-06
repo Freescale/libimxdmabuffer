@@ -53,6 +53,7 @@ typedef struct
 	int dma_heap_fd_is_internal;
 	unsigned int heap_flags;
 	unsigned int fd_flags;
+	int is_cached;
 }
 ImxDmaBufferDmaHeapAllocator;
 
@@ -157,6 +158,7 @@ static void imx_dma_buffer_dma_heap_allocator_deallocate(ImxDmaBufferAllocator *
 static uint8_t* imx_dma_buffer_dma_heap_allocator_map(ImxDmaBufferAllocator *allocator, ImxDmaBuffer *buffer, unsigned int flags, int *error)
 {
 	ImxDmaBufferDmaHeapBuffer *imx_dma_heap_buffer = (ImxDmaBufferDmaHeapBuffer *)buffer;
+	ImxDmaBufferDmaHeapAllocator *imx_dma_heap_allocator = (ImxDmaBufferDmaHeapAllocator *)allocator;
 
 	IMX_DMA_BUFFER_UNUSED_PARAM(allocator);
 
@@ -200,7 +202,7 @@ static uint8_t* imx_dma_buffer_dma_heap_allocator_map(ImxDmaBufferAllocator *all
 			imx_dma_heap_buffer->mapped_virtual_address = virtual_address;
 		}
 
-		if (!(flags & IMX_DMA_BUFFER_MAPPING_FLAG_MANUAL_SYNC))
+		if (imx_dma_heap_allocator->is_cached && !(flags & IMX_DMA_BUFFER_MAPPING_FLAG_MANUAL_SYNC))
 			imx_dma_buffer_dma_heap_allocator_start_sync_session_impl(imx_dma_heap_buffer);
 	}
 
@@ -211,6 +213,7 @@ static uint8_t* imx_dma_buffer_dma_heap_allocator_map(ImxDmaBufferAllocator *all
 static void imx_dma_buffer_dma_heap_allocator_unmap(ImxDmaBufferAllocator *allocator, ImxDmaBuffer *buffer)
 {
 	ImxDmaBufferDmaHeapBuffer *imx_dma_heap_buffer = (ImxDmaBufferDmaHeapBuffer *)buffer;
+	ImxDmaBufferDmaHeapAllocator *imx_dma_heap_allocator = (ImxDmaBufferDmaHeapAllocator *)allocator;
 
 	IMX_DMA_BUFFER_UNUSED_PARAM(allocator);
 
@@ -224,7 +227,7 @@ static void imx_dma_buffer_dma_heap_allocator_unmap(ImxDmaBufferAllocator *alloc
 	if (imx_dma_heap_buffer->mapping_refcount != 0)
 		return;
 
-	if (!(imx_dma_heap_buffer->map_flags & IMX_DMA_BUFFER_MAPPING_FLAG_MANUAL_SYNC))
+	if (imx_dma_heap_allocator->is_cached && !(imx_dma_heap_buffer->map_flags & IMX_DMA_BUFFER_MAPPING_FLAG_MANUAL_SYNC))
 		imx_dma_buffer_dma_heap_allocator_stop_sync_session_impl(imx_dma_heap_buffer);
 
 	munmap((void *)(imx_dma_heap_buffer->mapped_virtual_address), imx_dma_heap_buffer->size);
@@ -369,8 +372,6 @@ ImxDmaBufferAllocator* imx_dma_buffer_dma_heap_allocator_new(
 	imx_dma_heap_allocator->parent.deallocate = imx_dma_buffer_dma_heap_allocator_deallocate;
 	imx_dma_heap_allocator->parent.map = imx_dma_buffer_dma_heap_allocator_map;
 	imx_dma_heap_allocator->parent.unmap = imx_dma_buffer_dma_heap_allocator_unmap;
-	imx_dma_heap_allocator->parent.start_sync_session = imx_dma_buffer_dma_heap_allocator_start_sync_session;
-	imx_dma_heap_allocator->parent.stop_sync_session = imx_dma_buffer_dma_heap_allocator_stop_sync_session;
 	imx_dma_heap_allocator->parent.get_physical_address = imx_dma_buffer_dma_heap_allocator_get_physical_address;
 	imx_dma_heap_allocator->parent.get_fd = imx_dma_buffer_dma_heap_allocator_get_fd;
 	imx_dma_heap_allocator->parent.get_size = imx_dma_buffer_dma_heap_allocator_get_size;
@@ -378,6 +379,16 @@ ImxDmaBufferAllocator* imx_dma_buffer_dma_heap_allocator_new(
 	imx_dma_heap_allocator->dma_heap_fd_is_internal = (dma_heap_fd < 0);
 	imx_dma_heap_allocator->heap_flags = heap_flags;
 	imx_dma_heap_allocator->fd_flags = fd_flags;
+
+#ifdef IMXDMABUFFER_DMA_HEAP_ALLOCATES_UNCACHED_MEMORY
+	imx_dma_heap_allocator->parent.start_sync_session = imx_dma_buffer_noop_start_sync_session_func;
+	imx_dma_heap_allocator->parent.stop_sync_session = imx_dma_buffer_noop_stop_sync_session_func;
+	imx_dma_heap_allocator->is_cached = 0;
+#else
+	imx_dma_heap_allocator->parent.start_sync_session = imx_dma_buffer_dma_heap_allocator_start_sync_session;
+	imx_dma_heap_allocator->parent.stop_sync_session = imx_dma_buffer_dma_heap_allocator_stop_sync_session;
+	imx_dma_heap_allocator->is_cached = 1;
+#endif
 
 	if (dma_heap_fd < 0)
 	{
@@ -389,6 +400,47 @@ ImxDmaBufferAllocator* imx_dma_buffer_dma_heap_allocator_new(
 			free(imx_dma_heap_allocator);
 			return NULL;
 		}
+	}
+
+	return (ImxDmaBufferAllocator*)imx_dma_heap_allocator;
+}
+
+
+ImxDmaBufferAllocator* imx_dma_buffer_dma_heap_allocator_new_from_fd(
+    int dma_heap_fd,
+    unsigned int heap_flags,
+    unsigned int fd_flags,
+    int is_cached_memory_heap
+)
+{
+	ImxDmaBufferDmaHeapAllocator *imx_dma_heap_allocator;
+
+	assert(dma_heap_fd > 0);
+
+	imx_dma_heap_allocator = (ImxDmaBufferDmaHeapAllocator *)malloc(sizeof(ImxDmaBufferDmaHeapAllocator));
+	imx_dma_heap_allocator->parent.destroy = imx_dma_buffer_dma_heap_allocator_destroy;
+	imx_dma_heap_allocator->parent.allocate = imx_dma_buffer_dma_heap_allocator_allocate;
+	imx_dma_heap_allocator->parent.deallocate = imx_dma_buffer_dma_heap_allocator_deallocate;
+	imx_dma_heap_allocator->parent.map = imx_dma_buffer_dma_heap_allocator_map;
+	imx_dma_heap_allocator->parent.unmap = imx_dma_buffer_dma_heap_allocator_unmap;
+	imx_dma_heap_allocator->parent.get_physical_address = imx_dma_buffer_dma_heap_allocator_get_physical_address;
+	imx_dma_heap_allocator->parent.get_fd = imx_dma_buffer_dma_heap_allocator_get_fd;
+	imx_dma_heap_allocator->parent.get_size = imx_dma_buffer_dma_heap_allocator_get_size;
+	imx_dma_heap_allocator->dma_heap_fd = dma_heap_fd;
+	imx_dma_heap_allocator->dma_heap_fd_is_internal = 0;
+	imx_dma_heap_allocator->heap_flags = heap_flags;
+	imx_dma_heap_allocator->fd_flags = fd_flags;
+	imx_dma_heap_allocator->is_cached = !!is_cached_memory_heap;
+
+	if (is_cached_memory_heap)
+	{
+		imx_dma_heap_allocator->parent.start_sync_session = imx_dma_buffer_dma_heap_allocator_start_sync_session;
+		imx_dma_heap_allocator->parent.stop_sync_session = imx_dma_buffer_dma_heap_allocator_stop_sync_session;
+	}
+	else
+	{
+		imx_dma_heap_allocator->parent.start_sync_session = imx_dma_buffer_noop_start_sync_session_func;
+		imx_dma_heap_allocator->parent.stop_sync_session = imx_dma_buffer_noop_stop_sync_session_func;
 	}
 
 	return (ImxDmaBufferAllocator*)imx_dma_heap_allocator;

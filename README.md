@@ -105,6 +105,30 @@ libraries in `$PREFIX/lib/` , and generate a pkg-config .pc file, which is
 placed in `$PREFIX/lib/pkgconfig/` .
 
 
+Notes about dma-heap allocator and imx kernel version
+-----------------------------------------------------
+
+The dma-heap allocator is currently the only one that allocates cached
+memory. However, the way cache coherence is maintained involves an imx
+kernel specific workaround which just flushes / repopulates the entire
+buffer. This is slow, and typically not what users want.
+
+Starting with kernel 5.15.5, the imx-kernel contains an additional,
+uncached dma-heap. This one does not have this problem, since nothing
+needs to be flushed / repopulated.
+
+For this reason, the recommended configuration is:
+
+* imx-kernel older than 5.15.5 : Prefer ION allocator. It allocates
+  uncached memory and provides DMA-BUFs.
+* imx-kernel 5.15.5 and newer : Prefer dma-heap allocator and
+  configure it to use the device node path to the uncached dma-heap.
+
+If an uncached dma-heap is to be used, use the `--dma-heap-uncached-memory`
+configuration switch. The device node path to the uncached dma-heap is given
+using the `--dma-heap-device-node-path` configuration switch.
+
+
 Configuring the default allocator
 ---------------------------------
 
