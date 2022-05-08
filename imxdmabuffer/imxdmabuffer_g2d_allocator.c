@@ -139,7 +139,7 @@ static uint8_t* imx_dma_buffer_g2d_allocator_map(ImxDmaBufferAllocator *allocato
 	 * (Other allocators perform more steps than this.) */
 	if (imx_g2d_buffer->mapping_refcount > 0)
 	{
-		assert((imx_dwl_buffer->map_flags & flags & IMX_DMA_BUFFER_MAPPING_READWRITE_FLAG_MASK) == (flags & IMX_DMA_BUFFER_MAPPING_READWRITE_FLAG_MASK));
+		assert((imx_g2d_buffer->map_flags & flags & IMX_DMA_BUFFER_MAPPING_READWRITE_FLAG_MASK) == (flags & IMX_DMA_BUFFER_MAPPING_READWRITE_FLAG_MASK));
 		imx_g2d_buffer->mapping_refcount++;
 	}
 	else
