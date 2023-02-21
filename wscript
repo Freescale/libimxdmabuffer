@@ -2,6 +2,7 @@
 
 
 from waflib.Build import BuildContext, CleanContext, InstallContext, UninstallContext, Logs
+import os
 
 top = '.'
 out = 'build'
@@ -49,7 +50,7 @@ def add_compiler_flags(conf, env, flags, lang, compiler, uselib = ''):
 def options(opt):
 	opt.add_option('--enable-debug', action = 'store_true', default = False, help = 'enable debug build [default: disabled]')
 	opt.add_option('--enable-static', action = 'store_true', default = False, help = 'build static library [default: build shared library]')
-	opt.add_option('--imx-linux-headers-path', action='store', default='', help='path to i.MX linux headers (where linux/mxcfb.h etc. can be found)')
+	opt.add_option('--imx-linux-headers-path', action='store', default='', help='path to i.MX linux headers (where linux/ipu.h etc. can be found)')
 	opt.add_option('--with-dma-heap-allocator', action='store', default = 'auto', help = 'build with dma-heap allocator support (valid values: yes/no/auto)')
 	opt.add_option('--dma-heap-device-node-path', action='store', default='/dev/dma_heap/linux,cma', help='path to dma-heap device node')
 	opt.add_option('--dma-heap-uncached-memory', action='store_true', default = False, help = 'dma-heap allocator allocates uncached DMA memory (default: allocates cached DMA memory)')
@@ -98,9 +99,8 @@ def configure(conf):
 	# i.MX linux header checks and flags
 	if not conf.options.imx_linux_headers_path:
 		conf.fatal('--imx-linux-headers-path is not set')
-	if not conf.check_cc(uselib_store = 'IMXHEADERS', define_name = '', mandatory = False, includes = [conf.options.imx_linux_headers_path], header_name = 'linux/mxcfb.h'):
-		conf.fatal('Could not find linux/mxcfb.h in path "%s" specified by --imx-linux-headers-path' % conf.options.imx_linux_headers_path)
-	Logs.pprint('NORMAL', 'i.MX linux headers path: %s' % conf.options.imx_linux_headers_path)
+	conf.env['INCLUDES_IMXHEADERS'] = [os.path.abspath(os.path.expanduser(conf.options.imx_linux_headers_path))]
+	Logs.pprint('NORMAL', 'i.MX linux headers path: ' + conf.env['INCLUDES_IMXHEADERS'][0])
 
 
 	# dma-heap allocator checks and flags
