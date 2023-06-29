@@ -1,3 +1,13 @@
+==== version 1.1.3 (2023-06-29) ====
+
+* waf: update to 2.0.25
+* g2d: Fix typo in G2D allocator that caused build errors
+* Don't check for mxcfb.h in build script
+  mxcfb.h is no longer present in some sysroots anymore,
+  so it is not a reliable way for verifying the imx linux
+  headers path. Just use the path directly; if it is wrong,
+  the build will fail anyway.
+
 ==== version 1.1.2 (2022-05-06) ====
 
 * waf: update to 2.0.23
