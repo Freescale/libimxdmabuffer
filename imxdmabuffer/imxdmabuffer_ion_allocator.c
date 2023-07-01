@@ -269,7 +269,7 @@ int imx_dma_buffer_ion_allocator_get_ion_fd(ImxDmaBufferAllocator *allocator)
 
 static unsigned int get_heap_id_mask(int ion_fd, int *error)
 {
-	unsigned int heap_id_mask = 0;
+	static unsigned int heap_id_mask = 0;
 
 	/* Starting with kernel 4.14.34, we can iterate over the
 	 * ION heaps and find those with type ION_HEAP_TYPE_DMA. */
@@ -278,6 +278,9 @@ static unsigned int get_heap_id_mask(int ion_fd, int *error)
 	int heap_count;
 	struct ion_heap_query query = { 0 };
 	struct ion_heap_data *heap_data = NULL;
+
+	if (heap_id_mask != 0)
+		return heap_id_mask;
 
 	if ((ioctl(ion_fd, ION_IOC_HEAP_QUERY, &query) < 0) || (query.cnt == 0))
 	{
