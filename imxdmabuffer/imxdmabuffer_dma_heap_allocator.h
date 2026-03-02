@@ -115,6 +115,8 @@ int imx_dma_buffer_dma_heap_allocate_dmabuf(
 
 /* Retrieves a physical address for the DMA buffer with the given DMA-BUF FD.
  *
+ * DEPRECATED. Use imx_dma_buffer_get_physical_address_from_dmabuf_fd() instead.
+ *
  * @param dmabuf_fd DMA-BUF file descriptor to retrieve a physical address for.
  * @param error If this pointer is non-NULL, and if an error occurs, then the
  *        integer the pointer refers to is set to an error code from errno.h. If

@@ -1,5 +1,8 @@
 #include <assert.h>
 #include <string.h>
+#include <errno.h>
+#include <linux/dma-buf.h>
+#include <sys/ioctl.h>
 #include <imxdmabuffer_config.h>
 #include "imxdmabuffer.h"
 #include "imxdmabuffer_priv.h"
@@ -232,4 +235,21 @@ void imx_dma_buffer_init_wrapped_buffer(ImxWrappedDmaBuffer *buffer)
 {
 	memset(buffer, 0, sizeof(ImxWrappedDmaBuffer));
 	buffer->parent.allocator = &wrapped_dma_buffer_allocator;
+}
+
+
+imx_physical_address_t imx_dma_buffer_get_physical_address_from_dmabuf_fd(int dmabuf_fd, int *error)
+{
+	struct dma_buf_phys dma_phys;
+
+	assert(dmabuf_fd > 0);
+
+	if (ioctl(dmabuf_fd, DMA_BUF_IOCTL_PHYS, &dma_phys) < 0)
+	{
+		if (error != NULL)
+			*error = errno;
+		return 0;
+	}
+
+	return (imx_physical_address_t)(dma_phys.phys);
 }

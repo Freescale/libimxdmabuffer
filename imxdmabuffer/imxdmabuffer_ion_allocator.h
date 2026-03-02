@@ -85,8 +85,10 @@ int imx_dma_buffer_ion_allocator_get_ion_fd(ImxDmaBufferAllocator *allocator);
  * @param ion_fd /dev/ion file descriptor to use. Must not be negative.
  * @param size Size of the DMA buffer to allocate, in bytes. Must be greater than 0.
  * @param alignment Memory alignment for the newly allocated DMA buffer.
+ *        Set this to 0, since starting with kernel 4.14.34, this is no longer needed.
  * @param ion_heap_id_mask Bitmask for ION heaps during allocations. For more details,
  *        see the imx_dma_buffer_ion_allocator_new() ion_heap_id_mask reference.
+ *        Set this to 0, since starting with kernel 4.14.34, this is autodetected.
  * @param ion_heap_flags Flags to pass to the ION heap during allocations.
  * @param error If this pointer is non-NULL, and if an error occurs, then the
  *        integer the pointer refers to is set to an error code from errno.h. If
@@ -97,6 +99,8 @@ int imx_dma_buffer_ion_allocator_get_ion_fd(ImxDmaBufferAllocator *allocator);
 int imx_dma_buffer_ion_allocate_dmabuf(int ion_fd, size_t size, size_t alignment, unsigned int ion_heap_id_mask, unsigned int ion_heap_flags, int *error);
 
 /* Retrieves a physical address for the DMA buffer with the given DMA-BUF FD.
+ *
+ * DEPRECATED. Use imx_dma_buffer_get_physical_address_from_dmabuf_fd() instead.
  *
  * @param ion_fd /dev/ion file descriptor to use. Must not be negative.
  * @param dmabuf_fd DMA-BUF file descriptor to retrieve a physical address for.

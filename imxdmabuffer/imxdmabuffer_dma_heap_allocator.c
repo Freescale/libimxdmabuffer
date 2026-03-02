@@ -490,16 +490,5 @@ finish:
 
 imx_physical_address_t imx_dma_buffer_dma_heap_get_physical_address_from_dmabuf_fd(int dmabuf_fd, int *error)
 {
-	struct dma_buf_phys dma_phys;
-
-	assert(dmabuf_fd > 0);
-
-	if (ioctl(dmabuf_fd, DMA_BUF_IOCTL_PHYS, &dma_phys) < 0)
-	{
-		if (error != NULL)
-			*error = errno;
-		return 0;
-	}
-
-	return (imx_physical_address_t)(dma_phys.phys);
+	return imx_dma_buffer_get_physical_address_from_dmabuf_fd(dmabuf_fd, error);
 }

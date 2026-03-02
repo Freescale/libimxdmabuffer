@@ -103,6 +103,24 @@ def configure(conf):
 	Logs.pprint('NORMAL', 'i.MX linux headers path: ' + conf.env['INCLUDES_IMXHEADERS'][0])
 
 
+	# Linux version check. At least 4.14.34 is required.
+	linux_version_is_okay = conf.check_cc(
+		fragment = '''
+			#include <linux/version.h>
+			int main() {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 34)
+#error Linux is too old
+#endif
+				return 0;
+			}
+		''',
+		uselib = 'IMXHEADERS',
+		mandatory = True,
+		execute = False,
+		msg = 'Checking if Linux version is at least 4.14.34'
+	)
+
+
 	# dma-heap allocator checks and flags
 	with_dma_heap_alloc = conf.options.with_dma_heap_allocator
 	if with_dma_heap_alloc != 'no':

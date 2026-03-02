@@ -279,6 +279,17 @@ struct _ImxWrappedDmaBuffer
  * Always call this before further using such a structure. */
 void imx_dma_buffer_init_wrapped_buffer(ImxWrappedDmaBuffer *buffer);
 
+/* Retrieves a physical address for the DMA buffer with the given DMA-BUF FD.
+ *
+ * @param dmabuf_fd DMA-BUF file descriptor to retrieve a physical address for.
+ * @param error If this pointer is non-NULL, and if an error occurs, then the
+ *        integer the pointer refers to is set to an error code from errno.h. If
+ *        retrieving the physical address succeeds, the integer is not modified.
+ * @return Physical address to the DMA buffer represented by the DMA-BUF FD, or
+ *         0 if retrieving the address failed.
+ */
+imx_physical_address_t imx_dma_buffer_get_physical_address_from_dmabuf_fd(int dmabuf_fd, int *error);
+
 
 #ifdef __cplusplus
 }

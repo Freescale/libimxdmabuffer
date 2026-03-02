@@ -319,39 +319,25 @@ static unsigned int get_heap_id_mask(int ion_fd, int *error)
 
 int imx_dma_buffer_ion_allocate_dmabuf(int ion_fd, size_t size, size_t alignment, unsigned int ion_heap_id_mask, unsigned int ion_heap_flags, int *error)
 {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
-	/* alignment value is unused in newer kernels. See function
-	 * documentation for more about this. */
+	/* The alignment value is a leftover from old, pre-4.14.34
+	 * Linux kernel versions, where ION required this value. */
 	IMX_DMA_BUFFER_UNUSED_PARAM(alignment);
-#endif
 
-	/* Prior to kernel 4.14.34, we cannot get the FD from the
-	 * allocation data directly, and have to resort to an extra
-	 * ION_IOC_MAP ioctl, which requires the user_handle. */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
-	ion_user_handle_t user_handle;
-	int user_handle_set = 0;
-#endif
 	int dmabuf_fd = -1;
 
 	assert(ion_fd >= 0);
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
 	/* Starting with kernel 4.14.34, we do not need the ion_heap_id_mask
 	 * argument anymore, since we can autodetect the mask, so we ignore
 	 * the argument's value. */
 	ion_heap_id_mask = get_heap_id_mask(ion_fd, error);
 	if (ion_heap_id_mask == 0)
 		goto finish;
-#endif
 
 	{
 		struct ion_allocation_data allocation_data =
 		{
 			.len = size,
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
-			.align = alignment,
-#endif
 			.heap_id_mask = ion_heap_id_mask,
 			.flags = ion_heap_flags
 		};
@@ -363,97 +349,21 @@ int imx_dma_buffer_ion_allocate_dmabuf(int ion_fd, size_t size, size_t alignment
 			goto finish;
 		}
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
-		{
-			user_handle = allocation_data.handle;
-			user_handle_set = 1;
-
-			struct ion_fd_data fd_data =
-			{
-				.handle = user_handle
-			};
-
-			if ((ioctl(ion_fd, ION_IOC_MAP, &fd_data) < 0) || (fd_data.fd < 0))
-			{
-				if (error != NULL)
-					*error = errno;
-				goto finish;
-			}
-
-			dmabuf_fd = fd_data.fd;
-		}
-#else
 		dmabuf_fd = allocation_data.fd;
-#endif
 	}
-
 
 finish:
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
-	if (user_handle_set)
-	{
-		struct ion_handle_data handle_data =
-		{
-			.handle = user_handle
-		};
-
-		ioctl(ion_fd, ION_IOC_FREE, &handle_data);
-	}
-#endif
-
 	return dmabuf_fd;
 }
 
 
 imx_physical_address_t imx_dma_buffer_ion_get_physical_address_from_dmabuf_fd(int ion_fd, int dmabuf_fd, int *error)
 {
-	imx_physical_address_t physical_address = 0;
-
-	/* The DMA_BUF_IOCTL_PHYS ioctl is not available
-	 * until kernel version 4.14.34. */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
-
-	struct ion_phys_dma_data phys_dma_data =
-	{
-		.phys = 0,
-		.size = 0,
-		.dmafd = dmabuf_fd
-	};
-	struct ion_custom_data custom_data =
-	{
-		.cmd = ION_IOC_PHYS_DMA,
-		.arg = (unsigned long)(&phys_dma_data)
-	};
-
-	assert(ion_fd >= 0);
-
-	if (ioctl(ion_fd, ION_IOC_CUSTOM, &custom_data) < 0)
-	{
-		if (error != NULL)
-			*error = errno;
-		return 0;
-	}
-
-	physical_address = (imx_physical_address_t)(phys_dma_data.phys);
-
-#else
-
-	struct dma_buf_phys dma_phys;
-
-	assert(dmabuf_fd >= 0);
-
+	/* ion_fd is a leftover from when ION was used with pre-4.14.34
+	 * Linux kernels. This required an ION_IOC_PHYS_DMA command
+	 * to be sent to an ION FD. Kernel 4.14.34 is now the minimum
+	 * requirement, so this FD is no longer needed. */
 	IMX_DMA_BUFFER_UNUSED_PARAM(ion_fd);
 
-	if (ioctl(dmabuf_fd, DMA_BUF_IOCTL_PHYS, &dma_phys) < 0)
-	{
-		if (error != NULL)
-			*error = errno;
-		return 0;
-	}
-	physical_address = (imx_physical_address_t)(dma_phys.phys);
-
-#endif
-
-	return physical_address;
+	return imx_dma_buffer_get_physical_address_from_dmabuf_fd(dmabuf_fd, error);
 }
