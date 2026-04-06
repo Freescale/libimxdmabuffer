@@ -1,3 +1,16 @@
+==== version 1.2.0 (2026-04-07) ====
+
+* waf: update to 2.1.9
+* ion: Cache detected ion heaps mask
+* kernel: Set linux-imx 4.14.34 as the minimum required version
+* dma-buf: Add imx_dma_buffer_get_physical_address_from_dmabuf_fd()
+  imx_dma_buffer_dma_heap_get_physical_address_from_dmabuf_fd() and
+  imx_dma_buffer_ion_get_physical_address_from_dmabuf_fd() are deprecated,
+  since starting with linux-imx 4.14.34, the DMA_BUF_IOCTL_PHYS ioctl
+  can be used, which is independent of any particular allocator.
+  Instead, imx_dma_buffer_get_physical_address_from_dmabuf_fd() is
+  the recommended way to get physical address out of DMA-BUF FDs now.
+
 ==== version 1.1.3 (2023-06-29) ====
 
 * waf: update to 2.0.25
